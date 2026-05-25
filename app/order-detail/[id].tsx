@@ -8,7 +8,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { useApiClient } from '@/services/api';
 import { getRouteParam } from '@/lib/apiHelpers';
-import { ArrowLeft, Package, MapPin, CreditCard } from 'lucide-react-native';
+import { ArrowLeft, Package, MapPin, CreditCard, Star } from 'lucide-react-native';
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
   PROCESSING:  { bg: '#fef9c3', text: '#a16207', label: '⏳ Processing' },
@@ -109,6 +109,15 @@ export default function OrderDetailScreen() {
                 <Text style={styles.orderItemMeta}>
                   {item.quantity} × ₹{item.pricePerUnit || item.product?.pricePerUnit}
                 </Text>
+                {status === 'DELIVERED' && (
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 4 }}
+                    onPress={() => router.push(`/review/${order.id}?productId=${item.productId}` as any)}
+                  >
+                    <Star color="#f59e0b" size={14} />
+                    <Text style={{ color: '#f59e0b', fontSize: 13, fontWeight: 'bold' }}>Write Review</Text>
+                  </TouchableOpacity>
+                )}
               </View>
               <Text style={styles.orderItemTotal}>
                 ₹{((item.quantity || 1) * (item.pricePerUnit || item.product?.pricePerUnit || 0)).toFixed(2)}

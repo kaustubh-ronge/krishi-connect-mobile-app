@@ -12,6 +12,7 @@ import { useCartStore } from '@/store/cartStore';
 import {
   Package, Truck, Activity, User as UserIcon,
   LogOut, ChevronRight, ShoppingBag, PlusCircle, ClipboardList,
+  TrendingUp, IndianRupee
 } from 'lucide-react-native';
 import { MotiView, MotiScrollView } from 'moti';
 
@@ -37,11 +38,22 @@ export default function DashboardScreen() {
   const api = useApiClient();
   const { profile, role, loading, fetchProfile } = useUserStore();
   const { clearLocalCart } = useCartStore();
+  
+  const [salesSummary, setSalesSummary] = React.useState({ totalOrders: 0, totalRevenue: 0 });
 
   useFocusEffect(
     useCallback(() => {
       fetchProfile(api);
-    }, [])
+      if (role === 'farmer' || role === 'agent') {
+        api.get('mobile/v1/seller/sales').then(res => {
+          const data = res.data?.data || res.data || [];
+          if (Array.isArray(data)) {
+            const revenue = data.reduce((sum: number, item: any) => sum + Number(item.totalPriceAtTime || item.quantity * item.priceAtTime || 0), 0);
+            setSalesSummary({ totalOrders: data.length, totalRevenue: revenue });
+          }
+        }).catch(() => {});
+      }
+    }, [role])
   );
 
   const handleSignOut = async () => {
@@ -162,7 +174,7 @@ export default function DashboardScreen() {
           color: '#f59e0b',
           bgColor: 'bg-amber-50',
           iconBg: 'bg-amber-100',
-          onPress: () => Alert.alert('Coming Soon', 'Delivery jobs are available on the web app.'),
+          onPress: () => router.push('/deliveries'),
         },
       ];
     }
@@ -218,6 +230,31 @@ export default function DashboardScreen() {
             </View>
           </View>
         </MotiView>
+
+        {(role === 'farmer' || role === 'agent') && sellingStatus === 'APPROVED' && (
+          <MotiView
+            from={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', delay: 100 }}
+            className="mb-6 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-3xl p-5 shadow-sm"
+          >
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-white font-bold text-lg">Performance Overview</Text>
+              <Activity color="#fff" size={20} />
+            </View>
+            <View className="flex-row items-center justify-between">
+              <View>
+                <Text className="text-emerald-100 text-xs font-semibold uppercase tracking-wider mb-1">Total Revenue</Text>
+                <Text className="text-white text-2xl font-black">₹{salesSummary.totalRevenue.toLocaleString()}</Text>
+              </View>
+              <View className="w-px h-10 bg-emerald-400/50 mx-4" />
+              <View>
+                <Text className="text-emerald-100 text-xs font-semibold uppercase tracking-wider mb-1">Items Sold</Text>
+                <Text className="text-white text-2xl font-black">{salesSummary.totalOrders}</Text>
+              </View>
+            </View>
+          </MotiView>
+        )}
 
         <Text className="text-lg font-bold text-gray-900 mb-3 px-1">Quick Actions</Text>
         <View className="flex-row flex-wrap gap-3 mb-8">

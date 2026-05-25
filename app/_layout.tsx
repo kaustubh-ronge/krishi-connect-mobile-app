@@ -54,31 +54,56 @@ function AuthGuard() {
 
   useEffect(() => {
     if (!isLoaded) return;
-    if (isSignedIn && loading && !role) return;
 
-    const inAuthGroup = segments[0] === '(auth)';
-    const inOnboarding = segments[0] === 'onboarding';
-    const inEditProfile = segments[0] === 'edit-profile';
+    // Define explicitly protected routes
+    const protectedSegments = [
+      'checkout', 'orders', 'order-detail', 'create-listing', 
+      'edit-listing', 'my-listings', 'manage-orders', 'sales'
+    ];
+    // Specific tabs that require full auth and profile
+    const protectedTabs = ['dashboard', 'profile'];
+    // Special case for cart: allow it to render, but internally it will prompt for login if !isSignedIn
+
+    const rootSegment = segments[0] || '';
+    const tabSegment = segments[1] || '';
+
+    const inAuthGroup = rootSegment === '(auth)';
+    const inOnboarding = rootSegment === 'onboarding';
+    const inEditProfile = rootSegment === 'edit-profile';
+
+    const isProtectedSegment = protectedSegments.includes(rootSegment);
+    const isProtectedTab = rootSegment === '(tabs)' && protectedTabs.includes(tabSegment);
+
+    const requiresAuth = isProtectedSegment || isProtectedTab;
 
     if (!isSignedIn) {
-      if (!inAuthGroup) {
+      if (requiresAuth) {
         router.replace('/(auth)/sign-in');
       }
       return;
     }
 
-    const effectiveRole = role || 'none';
+    if (isSignedIn && loading && !role) return;
 
-    if (effectiveRole === 'none' && !inOnboarding) {
-      router.replace('/onboarding');
-      return;
+    // For signed-in users, check if they need onboarding ONLY IF they are on a protected route
+    // OR if we want to force them to onboard even to browse? The user said:
+    // "The onboarding/profile flow should NOT block normal browsing access."
+    // So we only force onboarding on protected routes!
+    if (isSignedIn && requiresAuth) {
+      const effectiveRole = role || 'none';
+
+      if (effectiveRole === 'none' && !inOnboarding) {
+        router.replace('/onboarding');
+        return;
+      }
+
+      if (effectiveRole !== 'none' && !loading && !profile && !inEditProfile && !inOnboarding) {
+        router.replace('/edit-profile?onboarding=true');
+        return;
+      }
     }
 
-    if (effectiveRole !== 'none' && !loading && !profile && !inEditProfile && !inOnboarding) {
-      router.replace('/edit-profile?onboarding=true');
-      return;
-    }
-
+    // Redirect away from auth screens if already signed in
     if (inAuthGroup) {
       router.replace('/(tabs)');
     }

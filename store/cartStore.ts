@@ -8,6 +8,10 @@ interface CartProduct {
   images: string[];
   deliveryCharge: number;
   deliveryChargeType: string;
+  id: string;
+  maxDeliveryRange: number;
+  farmer?: { lat?: number; lng?: number; name?: string; companyName?: string };
+  agent?: { lat?: number; lng?: number; name?: string; companyName?: string };
 }
 
 interface CartItem {

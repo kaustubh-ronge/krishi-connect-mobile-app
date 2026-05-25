@@ -8,10 +8,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { Colors } from '@/constants/Colors';
 import { useApiClient } from '@/services/api';
-import { getRouteParam, formatLocation } from '@/lib/apiHelpers';
+import { getRouteParam, formatLocation, calculateDistance } from '@/lib/apiHelpers';
 import { useCartStore } from '@/store/cartStore';
 import { useUserStore } from '@/store/userStore';
-import { ArrowLeft, MapPin, Package, Plus, Minus, ShoppingCart } from 'lucide-react-native';
+import { ArrowLeft, MapPin, Package, Plus, Minus, ShoppingCart, Truck, AlertCircle, Clock, CheckCircle2 } from 'lucide-react-native';
+import SpecialDeliveryModal from '@/components/SpecialDeliveryModal';
 
 export default function ProductDetailScreen() {
   const productId = getRouteParam(useLocalSearchParams<{ id: string }>().id);
@@ -19,7 +20,7 @@ export default function ProductDetailScreen() {
   const router = useRouter();
   const { isSignedIn } = useAuth();
   const { profile, role } = useUserStore();
-  const { addToCart, loading: cartLoading } = useCartStore();
+  const { items: cartItems, addToCart, loading: cartLoading } = useCartStore();
 
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -27,15 +28,25 @@ export default function ProductDetailScreen() {
   const [quantity, setQuantity] = useState(1);
   const [imageIndex, setImageIndex] = useState(0);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [isSpecialDeliveryModalVisible, setSpecialDeliveryModalVisible] = useState(false);
+  const [specialRequests, setSpecialRequests] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchProduct = async () => {
+    const fetchProductAndRequests = async () => {
       try {
-        const res = await api.get(`mobile/v1/products?id=${productId}`);
+        const [res, reqRes] = await Promise.all([
+          api.get(`mobile/v1/products?id=${productId}`),
+          isSignedIn ? api.get('mobile/v1/special-delivery').catch(() => ({ data: { data: [] } })) : { data: { data: [] } }
+        ]);
+        
         const p = res.data ?? null;
         setProduct(p);
         if (p?.minOrderQuantity) {
           setQuantity(Math.max(1, Number(p.minOrderQuantity) || 1));
+        }
+        
+        if (reqRes.data?.success) {
+          setSpecialRequests(reqRes.data.data || []);
         }
       } catch (err: any) {
         setError(err.message || 'Failed to load product');
@@ -43,8 +54,15 @@ export default function ProductDetailScreen() {
         setLoading(false);
       }
     };
-    if (productId) fetchProduct();
-  }, [productId]);
+    if (productId) fetchProductAndRequests();
+  }, [productId, isSignedIn]);
+
+  const reloadRequests = async () => {
+    try {
+      const res = await api.get('mobile/v1/special-delivery');
+      if (res.data?.success) setSpecialRequests(res.data.data || []);
+    } catch (e) {}
+  };
 
   const handleAddToCart = async () => {
     if (!product) return;
@@ -117,6 +135,39 @@ export default function ProductDetailScreen() {
   const images = product.images || [];
   const minQty = Math.max(1, Number(product?.minOrderQuantity) || 1);
   const maxQty = Math.min(Number(product?.availableStock) || 0, 100);
+  
+  // Calculate distance
+  const sellerLat = seller?.lat;
+  const sellerLng = seller?.lng;
+  const userLat = profile?.lat;
+  const userLng = profile?.lng;
+  
+  let distance = 0;
+  let isOutOfRange = false;
+  const maxRange = product.maxDeliveryRange || 50;
+  
+  if (sellerLat && sellerLng && userLat && userLng) {
+    distance = calculateDistance(userLat, userLng, sellerLat, sellerLng);
+    if (distance > maxRange) {
+      isOutOfRange = true;
+    }
+  }
+
+  const specialRequest = specialRequests.find((r: any) => r.productId === product.id);
+  const hasRequested = !!specialRequest;
+  const isBypassed = specialRequest?.status === 'APPROVED';
+  
+  const canAddToCart = !isOutOfRange || isBypassed;
+  
+  // Calculate quantity limits
+  const currentCartQuantity = cartItems.find((it: any) => it.productId === product.id)?.quantity || 0;
+  let dynamicMaxQty = maxQty;
+  if (isOutOfRange && isBypassed) {
+    dynamicMaxQty = Math.max(0, (specialRequest?.quantity || 0) - currentCartQuantity);
+  }
+
+  // Handle Grayscale state
+  const isGrayscaled = isOutOfRange && !isBypassed;
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -131,39 +182,41 @@ export default function ProductDetailScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Image Gallery */}
-        {images.length > 0 ? (
-          <View>
-            <Image source={{ uri: images[imageIndex] }} className="w-full h-72 bg-gray-200" resizeMode="cover" />
-            {images.length > 1 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mt-2 px-4 space-x-3">
-                {images.map((img: string, idx: number) => (
-                  <TouchableOpacity key={idx} onPress={() => setImageIndex(idx)}>
-                    <Image
-                      source={{ uri: img }}
-                      className={`w-16 h-16 rounded-xl border-2 ${idx === imageIndex ? "border-primary" : "border-transparent"}`}
-                      resizeMode="cover"
-                    />
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        ) : (
-          <View className="w-full h-72 bg-gray-100 items-center justify-center">
-            <Package color={Colors.light.icon} size={64} />
-          </View>
-        )}
+        <View style={{ opacity: isGrayscaled ? 0.5 : 1 }}>
+          {/* Image Gallery */}
+          {images.length > 0 ? (
+            <View>
+              <Image source={{ uri: images[imageIndex] }} className="w-full h-72 bg-gray-200" resizeMode="cover" />
+              {images.length > 1 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mt-2 px-4 space-x-3">
+                  {images.map((img: string, idx: number) => (
+                    <TouchableOpacity key={idx} onPress={() => setImageIndex(idx)}>
+                      <Image
+                        source={{ uri: img }}
+                        className={`w-16 h-16 rounded-xl border-2 ${idx === imageIndex ? "border-primary" : "border-transparent"}`}
+                        resizeMode="cover"
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+          ) : (
+            <View className="w-full h-72 bg-gray-100 items-center justify-center">
+              <Package color={Colors.light.icon} size={64} />
+            </View>
+          )}
 
-        <View className="p-4 bg-white rounded-t-3xl -mt-4 pt-6 pb-8">
-          {/* Category Badge */}
-          <View className="self-start px-3 py-1 bg-green-50 rounded-lg border border-green-100 mb-3">
-            <Text className="text-green-700 font-bold text-xs uppercase tracking-wide">{product.category || 'General'}</Text>
-          </View>
+          <View className="p-4 bg-white rounded-t-3xl -mt-4 pt-6 pb-8">
+            {/* Category Badge */}
+            <View className="self-start px-3 py-1 bg-green-50 rounded-lg border border-green-100 mb-3">
+              <Text className="text-green-700 font-bold text-xs uppercase tracking-wide">{product.category || 'General'}</Text>
+            </View>
 
-          {/* Title & Price */}
-          <Text className="text-2xl font-extrabold text-gray-900 mb-2 leading-tight">{product.productName}</Text>
-          <Text className="text-3xl font-black text-primary mb-5">₹{product.pricePerUnit} <Text className="text-base font-semibold text-gray-500">/ {product.unit}</Text></Text>
+            {/* Title & Price */}
+            <Text className="text-2xl font-extrabold text-gray-900 mb-2 leading-tight">{product.productName}</Text>
+            <Text className="text-3xl font-black text-primary mb-5">₹{product.pricePerUnit} <Text className="text-base font-semibold text-gray-500">/ {product.unit}</Text></Text>
+
 
           {/* Stock & Delivery */}
           <View className="flex-row flex-wrap gap-2 mb-6">
@@ -197,15 +250,17 @@ export default function ProductDetailScreen() {
           <Text className="text-lg font-bold text-gray-900 mb-3">Quantity ({product.unit})</Text>
           <View className="flex-row items-center mb-2">
             <TouchableOpacity
-              className="w-10 h-10 bg-gray-100 rounded-full items-center justify-center"
+              className={`w-10 h-10 rounded-full items-center justify-center ${quantity <= minQty || maxQty === 0 ? 'bg-gray-50 opacity-50' : 'bg-gray-100'}`}
               onPress={() => setQuantity(Math.max(minQty, quantity - 1))}
+              disabled={quantity <= minQty || maxQty === 0}
             >
               <Minus size={18} color={Colors.light.text} />
             </TouchableOpacity>
             <Text className="text-xl font-bold text-gray-900 mx-5">{quantity}</Text>
             <TouchableOpacity
-              className="w-10 h-10 bg-gray-100 rounded-full items-center justify-center"
-              onPress={() => setQuantity(Math.min(maxQty, quantity + 1))}
+              className={`w-10 h-10 rounded-full items-center justify-center ${quantity >= dynamicMaxQty ? 'bg-gray-50 opacity-50' : 'bg-gray-100'}`}
+              onPress={() => setQuantity(Math.min(dynamicMaxQty, quantity + 1))}
+              disabled={quantity >= dynamicMaxQty}
             >
               <Plus size={18} color={Colors.light.text} />
             </TouchableOpacity>
@@ -215,6 +270,29 @@ export default function ProductDetailScreen() {
           {minQty > 1 && (
             <Text className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded self-start mt-2">Minimum order: {minQty} {product.unit}</Text>
           )}
+
+          {isOutOfRange && isBypassed && dynamicMaxQty > 0 && (
+            <View className="mt-4 p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex-row items-center">
+              <CheckCircle2 color="#059669" size={16} className="mr-2" />
+              <Text className="text-sm text-emerald-800 flex-1">Approved to buy up to {specialRequest.quantity} units. You can add {dynamicMaxQty} more.</Text>
+            </View>
+          )}
+          {isOutOfRange && isBypassed && dynamicMaxQty <= 0 && (
+            <View className="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-100 flex-row items-center">
+              <AlertCircle color="#d97706" size={16} className="mr-2" />
+              <Text className="text-sm text-amber-800 flex-1">You have reached the approved limit ({specialRequest.quantity} {product.unit}) in your cart.</Text>
+            </View>
+          )}
+          {isGrayscaled && (
+            <View className="mt-4 p-3 bg-red-50 rounded-xl border border-red-100 flex-row items-start">
+              <AlertCircle color="#dc2626" size={20} className="mr-2 mt-0.5" />
+              <View className="flex-1">
+                <Text className="text-sm font-bold text-red-800 mb-1">Out of Delivery Range</Text>
+                <Text className="text-xs text-red-700 leading-tight">This seller is located {distance.toFixed(1)}km away (Max range: {maxRange}km). You must request special logistics delivery to buy this product.</Text>
+              </View>
+            </View>
+          )}
+        </View>
         </View>
       </ScrollView>
 
@@ -224,36 +302,65 @@ export default function ProductDetailScreen() {
           <Text className="text-sm font-semibold text-gray-500">Total</Text>
           <Text className="text-2xl font-black text-gray-900">₹{(quantity * product.pricePerUnit).toFixed(2)}</Text>
         </View>
-        <TouchableOpacity
-          className={`flex-2 flex-row items-center justify-center px-6 py-4 rounded-2xl ${
-            addingToCart ? "opacity-70" : ""
-          } ${
-            !isSignedIn || !role || role === 'none' || !profile 
-              ? "bg-gradient-to-r from-blue-500 to-indigo-600" 
-              : (!profile?.lat || !profile?.lng) 
-                ? "bg-amber-500" 
-                : "bg-primary"
-          }`}
-          onPress={handleAddToCart}
-          disabled={addingToCart}
-        >
-          {addingToCart ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <View className="flex-row items-center">
-              {!isSignedIn ? (
-                <Text className="text-white text-base font-bold">Login to Purchase</Text>
-              ) : (!role || role === 'none' || !profile) ? (
-                <Text className="text-white text-base font-bold">Complete Profile</Text>
-              ) : (!profile.lat || !profile.lng) ? (
-                <Text className="text-white text-base font-bold">Location Required</Text>
-              ) : (
-                <Text className="text-white text-lg font-bold">Add to Cart</Text>
-              )}
-            </View>
-          )}
-        </TouchableOpacity>
+
+        {isOutOfRange && !isBypassed && !hasRequested && isSignedIn && role !== 'none' && userLat && userLng ? (
+          <TouchableOpacity
+            className="flex-2 flex-row items-center justify-center px-6 py-4 rounded-2xl bg-amber-500"
+            onPress={() => setSpecialDeliveryModalVisible(true)}
+          >
+            <Truck color="#fff" size={20} className="mr-2" />
+            <Text className="text-white text-base font-bold">Request Delivery</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            className={`flex-2 flex-row items-center justify-center px-6 py-4 rounded-2xl ${
+              addingToCart || (isOutOfRange && isBypassed && dynamicMaxQty <= 0) || maxQty === 0 ? "opacity-70" : ""
+            } ${
+              !isSignedIn || !role || role === 'none' || !profile 
+                ? "bg-gradient-to-r from-blue-500 to-indigo-600" 
+                : (!profile?.lat || !profile?.lng) 
+                  ? "bg-amber-500" 
+                  : (isOutOfRange && hasRequested && !isBypassed) 
+                    ? "bg-gray-400"
+                    : (isOutOfRange && isBypassed && dynamicMaxQty <= 0) || maxQty === 0
+                      ? "bg-gray-400"
+                    : "bg-primary"
+            }`}
+            onPress={handleAddToCart}
+            disabled={addingToCart || (isOutOfRange && hasRequested && !isBypassed) || (isOutOfRange && isBypassed && dynamicMaxQty <= 0) || maxQty === 0}
+          >
+            {addingToCart ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <View className="flex-row items-center">
+                {!isSignedIn ? (
+                  <Text className="text-white text-base font-bold">Login to Purchase</Text>
+                ) : (!role || role === 'none' || !profile) ? (
+                  <Text className="text-white text-base font-bold">Complete Profile</Text>
+                ) : (!profile.lat || !profile.lng) ? (
+                  <Text className="text-white text-base font-bold">Location Required</Text>
+                ) : (isOutOfRange && hasRequested && !isBypassed) ? (
+                  <View className="flex-row items-center">
+                    <Clock color="#fff" size={16} className="mr-2" />
+                    <Text className="text-white text-base font-bold">Pending Approval</Text>
+                  </View>
+                ) : maxQty === 0 ? (
+                  <Text className="text-white text-lg font-bold">Out of Stock</Text>
+                ) : (
+                  <Text className="text-white text-lg font-bold">Add to Cart</Text>
+                )}
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
+
+      <SpecialDeliveryModal 
+        visible={isSpecialDeliveryModalVisible}
+        onClose={() => setSpecialDeliveryModalVisible(false)}
+        product={product}
+        onSuccess={reloadRequests}
+      />
     </SafeAreaView>
   );
 }

@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { ArrowLeft, ClipboardList, Check, Truck, Package } from 'lucide-react-native';
+import { ArrowLeft, ClipboardList, Check, Truck, Package, UserPlus } from 'lucide-react-native';
 import { Colors } from '@/constants/Colors';
 import { useApiClient } from '@/services/api';
 import { unwrapData } from '@/lib/apiHelpers';
@@ -128,15 +128,26 @@ export default function ManageOrdersScreen() {
         </View>
 
         {next && status !== 'DELIVERED' && status !== 'CANCELLED' && (
-          <TouchableOpacity
-            className="flex-row items-center justify-center py-3 rounded-xl gap-2 bg-primary"
-            onPress={() => promptNextStatus(order)}
-          >
-            {next.status === 'PACKED' && <Package size={16} color="white" />}
-            {next.status === 'SHIPPED' && <Truck size={16} color="white" />}
-            {next.status === 'DELIVERED' && <Check size={16} color="white" />}
-            <Text className="text-white font-bold text-sm">{next.label}</Text>
-          </TouchableOpacity>
+          <View className="flex-row gap-3">
+            {status === 'PACKED' && (
+              <TouchableOpacity
+                className="flex-1 flex-row items-center justify-center py-3 rounded-xl gap-2 bg-amber-500"
+                onPress={() => router.push(`/hire/${order.id}` as any)}
+              >
+                <UserPlus size={16} color="white" />
+                <Text className="text-white font-bold text-sm">Hire Delivery</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              className="flex-1 flex-row items-center justify-center py-3 rounded-xl gap-2 bg-primary"
+              onPress={() => promptNextStatus(order)}
+            >
+              {next.status === 'PACKED' && <Package size={16} color="white" />}
+              {next.status === 'SHIPPED' && <Truck size={16} color="white" />}
+              {next.status === 'DELIVERED' && <Check size={16} color="white" />}
+              <Text className="text-white font-bold text-sm">{next.label}</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     );
