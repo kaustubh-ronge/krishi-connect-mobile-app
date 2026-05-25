@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { useApiClient } from '@/services/api';
+import { getRouteParam } from '@/lib/apiHelpers';
 import { ArrowLeft, Package, MapPin, CreditCard } from 'lucide-react-native';
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
@@ -19,7 +20,7 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
 };
 
 export default function OrderDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const orderId = getRouteParam(useLocalSearchParams<{ id: string }>().id);
   const api = useApiClient();
   const router = useRouter();
   const [order, setOrder] = useState<any>(null);
@@ -29,7 +30,7 @@ export default function OrderDetailScreen() {
   useEffect(() => {
     const fetchOrder = async () => {
       try {
-        const res = await api.get(`mobile/v1/orders?id=${id}`);
+        const res = await api.get(`mobile/v1/orders?id=${orderId}`);
         setOrder(res.data);
       } catch (err: any) {
         setError(err.message || 'Failed to load order');
@@ -37,8 +38,8 @@ export default function OrderDetailScreen() {
         setLoading(false);
       }
     };
-    if (id) fetchOrder();
-  }, [id]);
+    if (orderId) fetchOrder();
+  }, [orderId]);
 
   if (loading) {
     return (

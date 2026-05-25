@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useSignUp, useOAuth } from '@clerk/clerk-expo';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { Colors } from '@/constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MotiView } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export const useWarmUpBrowser = () => {
   useEffect(() => {
@@ -58,6 +59,29 @@ export default function SignUpScreen() {
     }
   };
 
+  const onSelectGoogleAuth = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const { createdSessionId, signIn, signUp, setActive } = await startOAuthFlow({
+        redirectUrl: Linking.createURL('/onboarding', { scheme: 'krishiconnect' }),
+      });
+
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+        router.replace('/onboarding');
+      } else {
+        // If further steps are required, like choosing a role, redirect there
+        // (Usually handled via onboarding)
+      }
+    } catch (err: any) {
+      console.error('OAuth error', err);
+      setError('Google Sign-Up failed or was cancelled.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const onPressVerify = async () => {
     if (!isLoaded) return;
     setLoading(true);
@@ -83,249 +107,129 @@ export default function SignUpScreen() {
     }
   };
 
-  const onSelectGoogleAuth = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const { createdSessionId, signIn, signUp, setActive } = await startOAuthFlow({
-        redirectUrl: Linking.createURL('/onboarding', { scheme: 'krishiconnect' }),
-      });
-
-      if (createdSessionId && setActive) {
-        await setActive({ session: createdSessionId });
-        router.replace('/onboarding');
-      } else {
-        // If further steps are required, like choosing a role, redirect there
-        // (Usually handled via onboarding)
-      }
-    } catch (err: any) {
-      console.error('OAuth error', err);
-      setError('Google Sign-Up failed or was cancelled.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-        style={styles.keyboardView}
+    <SafeAreaView className="flex-1 bg-white">
+      <LinearGradient
+        colors={['#f0fdf4', '#ffffff']}
+        style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.header}>
-            <Text style={styles.title}>KrishiConnect</Text>
-            <Text style={styles.subtitle}>Create an account to join the marketplace.</Text>
-          </View>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+          className="flex-1"
+        >
+          <ScrollView contentContainerClassName="flex-grow justify-center px-6 py-10">
+            <MotiView
+              from={{ opacity: 0, translateY: -20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'timing', duration: 800 }}
+              className="items-center mb-10 mt-8"
+            >
+              <Text className="text-4xl font-extrabold text-primary-dark mb-2 tracking-tight">KrishiConnect</Text>
+              <Text className="text-base text-gray-500 text-center px-4">Create an account to join the marketplace.</Text>
+            </MotiView>
 
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {error ? (
+              <MotiView from={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-red-50 p-4 rounded-2xl mb-6 border border-red-100">
+                <Text className="text-red-600 text-center font-medium">{error}</Text>
+              </MotiView>
+            ) : null}
 
-          {!pendingVerification && (
-            <View style={styles.form}>
-              <Text style={styles.label}>Email Address</Text>
-              <TextInput
-                autoCapitalize="none"
-                value={emailAddress}
-                placeholder="farmer@example.com"
-                onChangeText={setEmailAddress}
-                style={styles.input}
-                keyboardType="email-address"
-              />
-
-              <Text style={styles.label}>Password</Text>
-              <TextInput
-                value={password}
-                placeholder="********"
-                secureTextEntry
-                onChangeText={setPassword}
-                style={styles.input}
-              />
-
-              <TouchableOpacity 
-                style={[styles.button, loading && styles.buttonDisabled]} 
-                onPress={onSignUpPress} 
-                disabled={loading}
+            {!pendingVerification && (
+              <MotiView
+                from={{ opacity: 0, translateY: 20 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{ type: 'timing', duration: 800, delay: 150 }}
+                className="w-full"
               >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.buttonText}>Sign Up</Text>
-                )}
-              </TouchableOpacity>
+                <Text className="text-sm font-semibold text-gray-700 mb-2 ml-1">Email Address</Text>
+                <TextInput
+                  autoCapitalize="none"
+                  value={emailAddress}
+                  placeholder="farmer@example.com"
+                  onChangeText={setEmailAddress}
+                  className="bg-white border border-gray-200 rounded-2xl p-4 mb-5 text-base text-gray-800 shadow-sm"
+                  keyboardType="email-address"
+                  placeholderTextColor="#9ca3af"
+                />
 
-              <View style={styles.dividerContainer}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>OR</Text>
-                <View style={styles.dividerLine} />
-              </View>
+                <Text className="text-sm font-semibold text-gray-700 mb-2 ml-1">Password</Text>
+                <TextInput
+                  value={password}
+                  placeholder="********"
+                  secureTextEntry
+                  onChangeText={setPassword}
+                  className="bg-white border border-gray-200 rounded-2xl p-4 mb-6 text-base text-gray-800 shadow-sm"
+                  placeholderTextColor="#9ca3af"
+                />
 
-              <TouchableOpacity 
-                style={[styles.googleButton, loading && styles.buttonDisabled]} 
-                onPress={onSelectGoogleAuth}
-                disabled={loading}
-              >
-                <Text style={styles.googleButtonText}>Continue with Google</Text>
-              </TouchableOpacity>
-
-              <View style={styles.footer}>
-                <Text style={styles.footerText}>Already have an account? </Text>
-                <TouchableOpacity onPress={() => router.push('/sign-in')}>
-                  <Text style={styles.link}>Sign In</Text>
+                <TouchableOpacity 
+                  className={`bg-primary p-4 rounded-2xl items-center shadow-md ${loading ? 'opacity-70' : 'opacity-100'}`}
+                  onPress={onSignUpPress} 
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text className="text-white text-lg font-bold tracking-wide">Sign Up</Text>
+                  )}
                 </TouchableOpacity>
-              </View>
-            </View>
-          )}
 
-          {pendingVerification && (
-            <View style={styles.form}>
-              <Text style={styles.label}>Verification Code</Text>
-              <Text style={styles.helperText}>A code was sent to {emailAddress}</Text>
-              <TextInput
-                value={code}
-                placeholder="123456"
-                onChangeText={setCode}
-                style={styles.input}
-                keyboardType="number-pad"
-              />
+                <View className="flex-row items-center my-8">
+                  <View className="flex-1 h-px bg-gray-200" />
+                  <Text className="px-4 text-gray-400 font-medium text-sm">OR</Text>
+                  <View className="flex-1 h-px bg-gray-200" />
+                </View>
 
-              <TouchableOpacity 
-                style={[styles.button, loading && styles.buttonDisabled]} 
-                onPress={onPressVerify} 
-                disabled={loading}
+                <TouchableOpacity 
+                  className={`bg-white border border-gray-200 p-4 rounded-2xl flex-row justify-center items-center shadow-sm ${loading ? 'opacity-70' : 'opacity-100'}`}
+                  onPress={onSelectGoogleAuth}
+                  disabled={loading}
+                >
+                  <Text className="text-gray-700 text-base font-semibold">Continue with Google</Text>
+                </TouchableOpacity>
+
+                <View className="flex-row justify-center mt-10">
+                  <Text className="text-gray-500 text-base">Already have an account? </Text>
+                  <TouchableOpacity onPress={() => router.push('/sign-in')}>
+                    <Text className="text-primary text-base font-bold">Sign In</Text>
+                  </TouchableOpacity>
+                </View>
+              </MotiView>
+            )}
+
+            {pendingVerification && (
+              <MotiView
+                from={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="w-full"
               >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.buttonText}>Verify Email</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+                <Text className="text-sm font-semibold text-gray-700 mb-1 ml-1">Verification Code</Text>
+                <Text className="text-xs text-gray-500 mb-4 ml-1">A code was sent to {emailAddress}</Text>
+                <TextInput
+                  value={code}
+                  placeholder="123456"
+                  onChangeText={setCode}
+                  className="bg-white border border-gray-200 rounded-2xl p-4 mb-6 text-base text-gray-800 text-center tracking-[8px] font-bold shadow-sm"
+                  keyboardType="number-pad"
+                  placeholderTextColor="#d1d5db"
+                />
+
+                <TouchableOpacity 
+                  className={`bg-primary p-4 rounded-2xl items-center shadow-md ${loading ? 'opacity-70' : 'opacity-100'}`}
+                  onPress={onPressVerify} 
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text className="text-white text-lg font-bold tracking-wide">Verify Email</Text>
+                  )}
+                </TouchableOpacity>
+              </MotiView>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.light.background,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 24,
-    justifyContent: 'center',
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: Colors.light.primary,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: Colors.light.icon,
-    textAlign: 'center',
-  },
-  errorText: {
-    color: Colors.light.error,
-    backgroundColor: '#fee2e2',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  form: {
-    width: '100%',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.light.text,
-    marginBottom: 8,
-  },
-  helperText: {
-    fontSize: 12,
-    color: Colors.light.icon,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: Colors.light.card,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 20,
-    fontSize: 16,
-    color: Colors.light.text,
-  },
-  button: {
-    backgroundColor: Colors.light.primary,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: Colors.light.border,
-  },
-  dividerText: {
-    paddingHorizontal: 10,
-    color: Colors.light.icon,
-    fontSize: 14,
-  },
-  googleButton: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  googleButtonText: {
-    color: Colors.light.text,
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 24,
-  },
-  footerText: {
-    color: Colors.light.icon,
-    fontSize: 14,
-  },
-  link: {
-    color: Colors.light.primary,
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-});

@@ -4,10 +4,13 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import { ClerkProvider, ClerkLoaded, useAuth, useUser } from '@clerk/clerk-expo';
+import '../global.css';
+import { ClerkProvider, ClerkLoaded, useAuth } from '@clerk/clerk-expo';
 import * as SecureStore from 'expo-secure-store';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useApiClient } from '@/services/api';
+import { useUserStore } from '@/store/userStore';
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 
@@ -35,37 +38,51 @@ const tokenCache = {
   },
 };
 
-// Auth guard: handles redirects based on auth state and user role
+// Auth guard: DB role via profiles/me (source of truth), not only Clerk metadata
 function AuthGuard() {
   const { isSignedIn, isLoaded } = useAuth();
-  const { user } = useUser();
   const segments = useSegments();
   const router = useRouter();
+  const api = useApiClient();
+  const { role, profile, fetchProfile, loading } = useUserStore();
+
+  useEffect(() => {
+    if (isSignedIn) {
+      fetchProfile(api);
+    }
+  }, [isSignedIn, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded) return;
+    if (isSignedIn && loading && !role) return;
 
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
+    const inEditProfile = segments[0] === 'edit-profile';
 
     if (!isSignedIn) {
-      // Not signed in → always go to sign-in
       if (!inAuthGroup) {
         router.replace('/(auth)/sign-in');
       }
-    } else {
-      // Signed in but role is 'none' or missing → go to onboarding
-      const role = user?.publicMetadata?.role as string | undefined;
-      if ((!role || role === 'none') && !inOnboarding) {
-        router.replace('/onboarding');
-        return;
-      }
-      // Signed in with a role but still on auth screen → go to tabs
-      if (inAuthGroup) {
-        router.replace('/(tabs)');
-      }
+      return;
     }
-  }, [isSignedIn, isLoaded, segments, user?.publicMetadata?.role]);
+
+    const effectiveRole = role || 'none';
+
+    if (effectiveRole === 'none' && !inOnboarding) {
+      router.replace('/onboarding');
+      return;
+    }
+
+    if (effectiveRole !== 'none' && !loading && !profile && !inEditProfile && !inOnboarding) {
+      router.replace('/edit-profile?onboarding=true');
+      return;
+    }
+
+    if (inAuthGroup) {
+      router.replace('/(tabs)');
+    }
+  }, [isSignedIn, isLoaded, segments, role, profile, loading]);
 
   return null;
 }
@@ -91,6 +108,11 @@ export default function RootLayout() {
             <Stack.Screen name="order-detail" options={{ headerShown: false }} />
             <Stack.Screen name="product" options={{ headerShown: false }} />
             <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
+            <Stack.Screen name="create-listing" options={{ headerShown: false }} />
+            <Stack.Screen name="edit-listing" options={{ headerShown: false }} />
+            <Stack.Screen name="my-listings" options={{ headerShown: false }} />
+            <Stack.Screen name="manage-orders" options={{ headerShown: false }} />
+            <Stack.Screen name="sales" options={{ headerShown: false }} />
             <Stack.Screen name="+not-found" />
           </Stack>
           <StatusBar style="auto" />

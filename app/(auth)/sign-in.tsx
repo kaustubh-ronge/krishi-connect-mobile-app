@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useSignIn, useOAuth } from '@clerk/clerk-expo';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { Colors } from '@/constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MotiView } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export const useWarmUpBrowser = () => {
   useEffect(() => {
@@ -84,191 +85,95 @@ export default function SignInScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-        style={styles.keyboardView}
+    <SafeAreaView className="flex-1 bg-white">
+      <LinearGradient
+        colors={['#f0fdf4', '#ffffff']}
+        style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.header}>
-            <Text style={styles.title}>KrishiConnect</Text>
-            <Text style={styles.subtitle}>Welcome back! Please sign in to continue.</Text>
-          </View>
-
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-          <View style={styles.form}>
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              autoCapitalize="none"
-              value={emailAddress}
-              placeholder="farmer@example.com"
-              onChangeText={setEmailAddress}
-              style={styles.input}
-              keyboardType="email-address"
-            />
-
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              value={password}
-              placeholder="********"
-              secureTextEntry
-              onChangeText={setPassword}
-              style={styles.input}
-            />
-
-            <TouchableOpacity 
-              style={[styles.button, loading && styles.buttonDisabled]} 
-              onPress={onSignInPress} 
-              disabled={loading}
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+          className="flex-1"
+        >
+          <ScrollView contentContainerClassName="flex-grow justify-center px-6 py-10">
+            <MotiView
+              from={{ opacity: 0, translateY: -20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'timing', duration: 800 }}
+              className="items-center mb-10 mt-8"
             >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Sign In</Text>
-              )}
-            </TouchableOpacity>
+              <Text className="text-4xl font-extrabold text-primary-dark mb-2 tracking-tight">KrishiConnect</Text>
+              <Text className="text-base text-gray-500 text-center px-4">Welcome back! Please sign in to continue.</Text>
+            </MotiView>
 
-            <View style={styles.dividerContainer}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>OR</Text>
-              <View style={styles.dividerLine} />
-            </View>
+            {error ? (
+              <MotiView from={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-red-50 p-4 rounded-2xl mb-6 border border-red-100">
+                <Text className="text-red-600 text-center font-medium">{error}</Text>
+              </MotiView>
+            ) : null}
 
-            <TouchableOpacity 
-              style={[styles.googleButton, loading && styles.buttonDisabled]} 
-              onPress={onSelectGoogleAuth}
-              disabled={loading}
+            <MotiView
+              from={{ opacity: 0, translateY: 20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'timing', duration: 800, delay: 150 }}
+              className="w-full"
             >
-              <Text style={styles.googleButtonText}>Continue with Google</Text>
-            </TouchableOpacity>
+              <Text className="text-sm font-semibold text-gray-700 mb-2 ml-1">Email Address</Text>
+              <TextInput
+                autoCapitalize="none"
+                value={emailAddress}
+                placeholder="farmer@example.com"
+                onChangeText={setEmailAddress}
+                className="bg-white border border-gray-200 rounded-2xl p-4 mb-5 text-base text-gray-800 shadow-sm"
+                keyboardType="email-address"
+                placeholderTextColor="#9ca3af"
+              />
 
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Don't have an account? </Text>
-              <TouchableOpacity onPress={() => router.push('/sign-up')}>
-                <Text style={styles.link}>Sign Up</Text>
+              <Text className="text-sm font-semibold text-gray-700 mb-2 ml-1">Password</Text>
+              <TextInput
+                value={password}
+                placeholder="********"
+                secureTextEntry
+                onChangeText={setPassword}
+                className="bg-white border border-gray-200 rounded-2xl p-4 mb-6 text-base text-gray-800 shadow-sm"
+                placeholderTextColor="#9ca3af"
+              />
+
+              <TouchableOpacity 
+                className={`bg-primary p-4 rounded-2xl items-center shadow-md ${loading ? 'opacity-70' : 'opacity-100'}`}
+                onPress={onSignInPress} 
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text className="text-white text-lg font-bold tracking-wide">Sign In</Text>
+                )}
               </TouchableOpacity>
-            </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+
+              <View className="flex-row items-center my-8">
+                <View className="flex-1 h-px bg-gray-200" />
+                <Text className="px-4 text-gray-400 font-medium text-sm">OR</Text>
+                <View className="flex-1 h-px bg-gray-200" />
+              </View>
+
+              <TouchableOpacity 
+                className={`bg-white border border-gray-200 p-4 rounded-2xl flex-row justify-center items-center shadow-sm ${loading ? 'opacity-70' : 'opacity-100'}`}
+                onPress={onSelectGoogleAuth}
+                disabled={loading}
+              >
+                <Text className="text-gray-700 text-base font-semibold">Continue with Google</Text>
+              </TouchableOpacity>
+
+              <View className="flex-row justify-center mt-10">
+                <Text className="text-gray-500 text-base">Don't have an account? </Text>
+                <TouchableOpacity onPress={() => router.push('/sign-up')}>
+                  <Text className="text-primary text-base font-bold">Sign Up</Text>
+                </TouchableOpacity>
+              </View>
+            </MotiView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.light.background,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 24,
-    justifyContent: 'center',
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: Colors.light.primary,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: Colors.light.icon,
-    textAlign: 'center',
-  },
-  errorText: {
-    color: Colors.light.error,
-    backgroundColor: '#fee2e2',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  form: {
-    width: '100%',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.light.text,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: Colors.light.card,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 20,
-    fontSize: 16,
-    color: Colors.light.text,
-  },
-  button: {
-    backgroundColor: Colors.light.primary,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: Colors.light.border,
-  },
-  dividerText: {
-    paddingHorizontal: 10,
-    color: Colors.light.icon,
-    fontSize: 14,
-  },
-  googleButton: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  googleButtonText: {
-    color: Colors.light.text,
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 24,
-  },
-  footerText: {
-    color: Colors.light.icon,
-    fontSize: 14,
-  },
-  link: {
-    color: Colors.light.primary,
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-});

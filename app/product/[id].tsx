@@ -1,19 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, Image, TouchableOpacity,
+  View, Text, Image, TouchableOpacity,
   ActivityIndicator, ScrollView, FlatList, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useAuth } from '@clerk/clerk-expo';
 import { Colors } from '@/constants/Colors';
 import { useApiClient } from '@/services/api';
+import { getRouteParam, formatLocation } from '@/lib/apiHelpers';
 import { useCartStore } from '@/store/cartStore';
+import { useUserStore } from '@/store/userStore';
 import { ArrowLeft, MapPin, Package, Plus, Minus, ShoppingCart } from 'lucide-react-native';
 
 export default function ProductDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const productId = getRouteParam(useLocalSearchParams<{ id: string }>().id);
   const api = useApiClient();
   const router = useRouter();
+  const { isSignedIn } = useAuth();
+  const { profile, role } = useUserStore();
   const { addToCart, loading: cartLoading } = useCartStore();
 
   const [product, setProduct] = useState<any>(null);
@@ -26,19 +31,39 @@ export default function ProductDetailScreen() {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const res = await api.get(`mobile/v1/products?id=${id}`);
-        setProduct(res.data);
+        const res = await api.get(`mobile/v1/products?id=${productId}`);
+        const p = res.data ?? null;
+        setProduct(p);
+        if (p?.minOrderQuantity) {
+          setQuantity(Math.max(1, Number(p.minOrderQuantity) || 1));
+        }
       } catch (err: any) {
         setError(err.message || 'Failed to load product');
       } finally {
         setLoading(false);
       }
     };
-    if (id) fetchProduct();
-  }, [id]);
+    if (productId) fetchProduct();
+  }, [productId]);
 
   const handleAddToCart = async () => {
     if (!product) return;
+
+    if (!isSignedIn) {
+      router.push('/(auth)/sign-in');
+      return;
+    }
+
+    if (!role || role === 'none' || !profile) {
+      router.push('/onboarding');
+      return;
+    }
+
+    if (!profile.lat || !profile.lng) {
+      router.push('/edit-profile');
+      return;
+    }
+
     setAddingToCart(true);
     try {
       await addToCart(api, product.id, quantity);
@@ -55,13 +80,13 @@ export default function ProductDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+      <SafeAreaView className="flex-1 bg-gray-50">
+        <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-gray-100">
+          <TouchableOpacity onPress={() => router.back()} className="p-2 bg-gray-50 rounded-full">
             <ArrowLeft color={Colors.light.text} size={22} />
           </TouchableOpacity>
         </View>
-        <View style={styles.centerContainer}>
+        <View className="flex-1 items-center justify-center p-6">
           <ActivityIndicator size="large" color={Colors.light.primary} />
         </View>
       </SafeAreaView>
@@ -70,16 +95,16 @@ export default function ProductDetailScreen() {
 
   if (error || !product) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+      <SafeAreaView className="flex-1 bg-gray-50">
+        <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-gray-100">
+          <TouchableOpacity onPress={() => router.back()} className="p-2 bg-gray-50 rounded-full">
             <ArrowLeft color={Colors.light.text} size={22} />
           </TouchableOpacity>
         </View>
-        <View style={styles.centerContainer}>
-          <Text style={styles.errorText}>{error || 'Product not found'}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => router.back()}>
-            <Text style={styles.retryText}>Go Back</Text>
+        <View className="flex-1 items-center justify-center p-6">
+          <Text className="text-lg font-semibold text-gray-800 mb-4">{error || 'Product not found'}</Text>
+          <TouchableOpacity className="bg-primary px-6 py-3 rounded-full" onPress={() => router.back()}>
+            <Text className="text-white font-bold">Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -88,18 +113,19 @@ export default function ProductDetailScreen() {
 
   const seller = product.farmer || product.agent;
   const sellerName = seller?.name || seller?.companyName || 'Unknown Seller';
-  const location = [seller?.district, seller?.region].filter(Boolean).join(', ') || 'Location hidden';
+  const location = formatLocation(seller);
   const images = product.images || [];
-  const maxQty = Math.min(product.availableStock, 100);
+  const minQty = Math.max(1, Number(product?.minOrderQuantity) || 1);
+  const maxQty = Math.min(Number(product?.availableStock) || 0, 100);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-gray-100">
+        <TouchableOpacity onPress={() => router.back()} className="p-2 bg-gray-50 rounded-full">
           <ArrowLeft color={Colors.light.text} size={22} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>{product.productName}</Text>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/cart')} style={styles.cartBtn}>
+        <Text className="text-lg font-bold text-gray-800 flex-1 mx-3" numberOfLines={1}>{product.productName}</Text>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/cart')} className="p-2 bg-green-50 rounded-full">
           <ShoppingCart color={Colors.light.primary} size={22} />
         </TouchableOpacity>
       </View>
@@ -108,14 +134,14 @@ export default function ProductDetailScreen() {
         {/* Image Gallery */}
         {images.length > 0 ? (
           <View>
-            <Image source={{ uri: images[imageIndex] }} style={styles.mainImage} resizeMode="cover" />
+            <Image source={{ uri: images[imageIndex] }} className="w-full h-72 bg-gray-200" resizeMode="cover" />
             {images.length > 1 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbnailRow}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mt-2 px-4 space-x-3">
                 {images.map((img: string, idx: number) => (
                   <TouchableOpacity key={idx} onPress={() => setImageIndex(idx)}>
                     <Image
                       source={{ uri: img }}
-                      style={[styles.thumbnail, idx === imageIndex && styles.thumbnailActive]}
+                      className={`w-16 h-16 rounded-xl border-2 ${idx === imageIndex ? "border-primary" : "border-transparent"}`}
                       resizeMode="cover"
                     />
                   </TouchableOpacity>
@@ -124,28 +150,28 @@ export default function ProductDetailScreen() {
             )}
           </View>
         ) : (
-          <View style={styles.imagePlaceholder}>
+          <View className="w-full h-72 bg-gray-100 items-center justify-center">
             <Package color={Colors.light.icon} size={64} />
           </View>
         )}
 
-        <View style={styles.content}>
+        <View className="p-4 bg-white rounded-t-3xl -mt-4 pt-6 pb-8">
           {/* Category Badge */}
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryText}>{product.category || 'General'}</Text>
+          <View className="self-start px-3 py-1 bg-green-50 rounded-lg border border-green-100 mb-3">
+            <Text className="text-green-700 font-bold text-xs uppercase tracking-wide">{product.category || 'General'}</Text>
           </View>
 
           {/* Title & Price */}
-          <Text style={styles.productName}>{product.productName}</Text>
-          <Text style={styles.price}>₹{product.pricePerUnit} <Text style={styles.priceUnit}>/ {product.unit}</Text></Text>
+          <Text className="text-2xl font-extrabold text-gray-900 mb-2 leading-tight">{product.productName}</Text>
+          <Text className="text-3xl font-black text-primary mb-5">₹{product.pricePerUnit} <Text className="text-base font-semibold text-gray-500">/ {product.unit}</Text></Text>
 
           {/* Stock & Delivery */}
-          <View style={styles.infoRow}>
-            <View style={styles.infoChip}>
-              <Text style={styles.infoChipText}>📦 {product.availableStock} {product.unit} available</Text>
+          <View className="flex-row flex-wrap gap-2 mb-6">
+            <View className="flex-row items-center bg-gray-50 px-3 py-2 rounded-xl border border-gray-100">
+              <Text className="text-sm font-semibold text-gray-700">📦 {product.availableStock} {product.unit} available</Text>
             </View>
-            <View style={styles.infoChip}>
-              <Text style={styles.infoChipText}>
+            <View className="flex-row items-center bg-gray-50 px-3 py-2 rounded-xl border border-gray-100">
+              <Text className="text-sm font-semibold text-gray-700">
                 {product.deliveryChargeType === 'flat'
                   ? `🚚 ₹${product.deliveryCharge} delivery`
                   : product.deliveryCharge === 0 ? '🚚 Free delivery' : `🚚 ₹${product.deliveryCharge}/${product.unit}`}
@@ -154,59 +180,77 @@ export default function ProductDetailScreen() {
           </View>
 
           {/* Seller Info */}
-          <View style={styles.sellerCard}>
-            <View style={styles.sellerAvatar}>
-              <Text style={styles.sellerAvatarText}>{sellerName[0]?.toUpperCase()}</Text>
+          <View className="flex-row items-center p-4 bg-gray-50 rounded-2xl mb-6 border border-gray-100">
+            <View className="w-12 h-12 bg-primary rounded-full items-center justify-center mr-4">
+              <Text className="text-xl font-bold text-white">{sellerName[0]?.toUpperCase()}</Text>
             </View>
-            <View style={styles.sellerInfo}>
-              <Text style={styles.sellerName}>{sellerName}</Text>
-              <View style={styles.locationRow}>
+            <View className="flex-1">
+              <Text className="text-base font-bold text-gray-900 mb-1">{sellerName}</Text>
+              <View className="flex-row items-center">
                 <MapPin color={Colors.light.icon} size={13} />
-                <Text style={styles.locationText}>{location}</Text>
+                <Text className="text-xs text-gray-500 ml-1">{location}</Text>
               </View>
             </View>
           </View>
 
           {/* Quantity Picker */}
-          <Text style={styles.sectionLabel}>Quantity ({product.unit})</Text>
-          <View style={styles.quantityRow}>
+          <Text className="text-lg font-bold text-gray-900 mb-3">Quantity ({product.unit})</Text>
+          <View className="flex-row items-center mb-2">
             <TouchableOpacity
-              style={styles.qtyBtn}
-              onPress={() => setQuantity(Math.max(1, quantity - 1))}
+              className="w-10 h-10 bg-gray-100 rounded-full items-center justify-center"
+              onPress={() => setQuantity(Math.max(minQty, quantity - 1))}
             >
               <Minus size={18} color={Colors.light.text} />
             </TouchableOpacity>
-            <Text style={styles.qtyValue}>{quantity}</Text>
+            <Text className="text-xl font-bold text-gray-900 mx-5">{quantity}</Text>
             <TouchableOpacity
-              style={styles.qtyBtn}
+              className="w-10 h-10 bg-gray-100 rounded-full items-center justify-center"
               onPress={() => setQuantity(Math.min(maxQty, quantity + 1))}
             >
               <Plus size={18} color={Colors.light.text} />
             </TouchableOpacity>
-            <Text style={styles.qtyTotal}>= ₹{(quantity * product.pricePerUnit).toFixed(2)}</Text>
+            <Text className="text-lg font-bold text-gray-500 ml-auto">= ₹{((quantity || 1) * (Number(product?.pricePerUnit) || 0)).toFixed(2)}</Text>
           </View>
 
-          {product.minOrderQuantity > 1 && (
-            <Text style={styles.minOrderNote}>Minimum order: {product.minOrderQuantity} {product.unit}</Text>
+          {minQty > 1 && (
+            <Text className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded self-start mt-2">Minimum order: {minQty} {product.unit}</Text>
           )}
         </View>
       </ScrollView>
 
       {/* Add to Cart Footer */}
-      <View style={styles.footer}>
-        <View style={styles.footerPrice}>
-          <Text style={styles.footerPriceLabel}>Total</Text>
-          <Text style={styles.footerPriceValue}>₹{(quantity * product.pricePerUnit).toFixed(2)}</Text>
+      <View className="flex-row items-center justify-between p-4 bg-white border-t border-gray-100 pb-8">
+        <View className="flex-1 mr-4">
+          <Text className="text-sm font-semibold text-gray-500">Total</Text>
+          <Text className="text-2xl font-black text-gray-900">₹{(quantity * product.pricePerUnit).toFixed(2)}</Text>
         </View>
         <TouchableOpacity
-          style={[styles.addToCartBtn, addingToCart && styles.addToCartBtnDisabled]}
+          className={`flex-2 flex-row items-center justify-center px-6 py-4 rounded-2xl ${
+            addingToCart ? "opacity-70" : ""
+          } ${
+            !isSignedIn || !role || role === 'none' || !profile 
+              ? "bg-gradient-to-r from-blue-500 to-indigo-600" 
+              : (!profile?.lat || !profile?.lng) 
+                ? "bg-amber-500" 
+                : "bg-primary"
+          }`}
           onPress={handleAddToCart}
           disabled={addingToCart}
         >
           {addingToCart ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.addToCartText}>Add to Cart</Text>
+            <View className="flex-row items-center">
+              {!isSignedIn ? (
+                <Text className="text-white text-base font-bold">Login to Purchase</Text>
+              ) : (!role || role === 'none' || !profile) ? (
+                <Text className="text-white text-base font-bold">Complete Profile</Text>
+              ) : (!profile.lat || !profile.lng) ? (
+                <Text className="text-white text-base font-bold">Location Required</Text>
+              ) : (
+                <Text className="text-white text-lg font-bold">Add to Cart</Text>
+              )}
+            </View>
           )}
         </TouchableOpacity>
       </View>
@@ -214,111 +258,4 @@ export default function ProductDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.light.background },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
-    gap: 12,
-  },
-  backBtn: { padding: 4 },
-  headerTitle: { flex: 1, fontSize: 17, fontWeight: 'bold', color: Colors.light.text },
-  cartBtn: { padding: 4 },
-  mainImage: { width: '100%', height: 280, backgroundColor: '#e5e7eb' },
-  imagePlaceholder: {
-    width: '100%', height: 280, backgroundColor: '#f3f4f6',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  thumbnailRow: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#f9fafb' },
-  thumbnail: {
-    width: 56, height: 56, borderRadius: 8, marginRight: 8,
-    borderWidth: 2, borderColor: 'transparent',
-  },
-  thumbnailActive: { borderColor: Colors.light.primary },
-  content: { padding: 16 },
-  categoryBadge: {
-    backgroundColor: '#f0fdf4',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  categoryText: { fontSize: 12, color: Colors.light.primaryDark, fontWeight: '600' },
-  productName: { fontSize: 22, fontWeight: 'bold', color: Colors.light.text, marginBottom: 6 },
-  price: { fontSize: 26, fontWeight: 'bold', color: Colors.light.primary, marginBottom: 14 },
-  priceUnit: { fontSize: 14, color: Colors.light.icon, fontWeight: 'normal' },
-  infoRow: { flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
-  infoChip: {
-    backgroundColor: '#f3f4f6',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  infoChipText: { fontSize: 13, color: Colors.light.text },
-  sellerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f9fafb',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    gap: 12,
-  },
-  sellerAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.light.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sellerAvatarText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  sellerInfo: { flex: 1 },
-  sellerName: { fontSize: 15, fontWeight: 'bold', color: Colors.light.text, marginBottom: 2 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  locationText: { fontSize: 13, color: Colors.light.icon },
-  sectionLabel: { fontSize: 14, fontWeight: '600', color: Colors.light.text, marginBottom: 10 },
-  quantityRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 8 },
-  qtyBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#f3f4f6',
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1, borderColor: Colors.light.border,
-  },
-  qtyValue: { fontSize: 20, fontWeight: 'bold', color: Colors.light.text, minWidth: 30, textAlign: 'center' },
-  qtyTotal: { fontSize: 16, fontWeight: '600', color: Colors.light.primary },
-  minOrderNote: { fontSize: 12, color: Colors.light.icon, marginBottom: 16 },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    paddingBottom: 24,
-    borderTopWidth: 1,
-    borderTopColor: Colors.light.border,
-    backgroundColor: Colors.light.background,
-    gap: 16,
-  },
-  footerPrice: { flex: 1 },
-  footerPriceLabel: { fontSize: 12, color: Colors.light.icon },
-  footerPriceValue: { fontSize: 22, fontWeight: 'bold', color: Colors.light.text },
-  addToCartBtn: {
-    flex: 2,
-    backgroundColor: Colors.light.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  addToCartBtnDisabled: { opacity: 0.7 },
-  addToCartText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  errorText: { color: Colors.light.error, fontSize: 15, textAlign: 'center', marginBottom: 16 },
-  retryButton: { backgroundColor: Colors.light.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
-  retryText: { color: '#fff', fontWeight: 'bold' },
-});
+

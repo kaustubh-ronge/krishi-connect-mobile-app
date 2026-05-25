@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  View, Text, TextInput, TouchableOpacity,
   ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,7 +17,7 @@ const WEB_APP_URL = process.env.EXPO_PUBLIC_APP_URL?.replace('/api/', '') || 'ht
 
 export default function CheckoutScreen() {
   const api = useApiClient();
-  const { fetchCart } = useCartStore();
+  const { items, fetchCart } = useCartStore();
   const { profile, fetchProfile } = useUserStore();
   const router = useRouter();
 
@@ -26,6 +26,32 @@ export default function CheckoutScreen() {
   const [phone, setPhone] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'ONLINE' | 'COD'>('ONLINE');
   const [loading, setLoading] = useState(false);
+
+  // Calculate Totals
+  const [subtotal, setSubtotal] = useState(0);
+  const [deliveryFee, setDeliveryFee] = useState(0);
+
+  useEffect(() => {
+    let newSubtotal = 0;
+    let newDeliveryFee = 0;
+    
+    items.forEach((item: any) => {
+      const product = item.product;
+      const itemTotal = (product.pricePerUnit || 0) * item.quantity;
+      newSubtotal += itemTotal;
+      
+      let itemDelivery = product.deliveryCharge || 0;
+      if (product.deliveryChargeType === 'per_unit') {
+        itemDelivery *= item.quantity;
+      }
+      newDeliveryFee += itemDelivery;
+    });
+
+    setSubtotal(newSubtotal);
+    setDeliveryFee(newDeliveryFee);
+  }, [items]);
+
+  const totalAmount = subtotal + deliveryFee;
 
   // Pre-fill from profile
   useEffect(() => {
@@ -71,6 +97,8 @@ export default function CheckoutScreen() {
             lat: profile.lat,
             lng: profile.lng,
           },
+          selectedItemIds: items.map((i: any) => i.id),
+          forceFresh: true,
         },
       };
 
@@ -114,100 +142,124 @@ export default function CheckoutScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <View className="flex-row items-center p-4 bg-white border-b border-gray-100">
+        <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3 bg-gray-50 rounded-full">
           <ArrowLeft color={Colors.light.text} size={22} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Checkout</Text>
+        <Text className="text-lg font-bold text-gray-900">Checkout</Text>
       </View>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Shipping Details</Text>
+        <ScrollView contentContainerClassName="p-4 pb-24" keyboardShouldPersistTaps="handled">
+          <View className="bg-white p-4 rounded-2xl mb-4 border border-gray-100 shadow-sm">
+            <Text className="text-lg font-bold text-gray-800 mb-4">Order Summary</Text>
+            {items.map((item: any) => (
+              <View key={item.id} className="flex-row justify-between items-center mb-3">
+                <Text className="flex-1 text-sm text-gray-700 mr-2" numberOfLines={1}>{item.product?.productName}</Text>
+                <Text className="text-sm font-semibold text-gray-500 w-16 text-center">Qty: {item.quantity}</Text>
+                <Text className="text-sm font-bold text-gray-800 w-20 text-right">₹{(item.product?.pricePerUnit || 0) * item.quantity}</Text>
+              </View>
+            ))}
+            <View className="h-px bg-gray-100 my-3" />
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-sm text-gray-500">Subtotal</Text>
+              <Text className="text-sm font-bold text-gray-800">₹{subtotal}</Text>
+            </View>
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-sm text-gray-500">Est. Delivery</Text>
+              <Text className="text-sm font-bold text-gray-800">₹{deliveryFee}</Text>
+            </View>
+            <View className="flex-row justify-between mb-2 mt-2 pt-2 border-t border-gray-100">
+              <Text className="text-base font-bold text-gray-900">Total Amount</Text>
+              <Text className="text-lg font-black text-primary">₹{totalAmount}</Text>
+            </View>
+          </View>
 
-            <Text style={styles.label}>Full Name *</Text>
+          <View className="bg-white p-4 rounded-2xl mb-4 border border-gray-100 shadow-sm">
+            <Text className="text-lg font-bold text-gray-800 mb-4">Shipping Details</Text>
+
+            <Text className="text-sm font-semibold text-gray-600 mt-3 mb-1">Full Name *</Text>
             <TextInput
               value={name}
               onChangeText={setName}
               placeholder="Enter your full name"
               placeholderTextColor={Colors.light.icon}
-              style={styles.input}
+              className="border border-gray-300 rounded-xl px-4 py-3 text-base text-gray-900 bg-gray-50"
             />
 
-            <Text style={styles.label}>Phone Number *</Text>
+            <Text className="text-sm font-semibold text-gray-600 mt-3 mb-1">Phone Number *</Text>
             <TextInput
               value={phone}
               onChangeText={setPhone}
               placeholder="10-digit mobile number"
               placeholderTextColor={Colors.light.icon}
               keyboardType="phone-pad"
-              style={styles.input}
+              className="border border-gray-300 rounded-xl px-4 py-3 text-base text-gray-900 bg-gray-50"
             />
 
-            <Text style={styles.label}>Delivery Address *</Text>
+            <Text className="text-sm font-semibold text-gray-600 mt-3 mb-1">Delivery Address *</Text>
             <TextInput
               value={address}
               onChangeText={setAddress}
               placeholder="Full delivery address"
               placeholderTextColor={Colors.light.icon}
-              style={[styles.input, styles.textArea]}
+              className="border border-gray-300 rounded-xl px-4 py-3 text-base text-gray-900 bg-gray-50 h-24"
               multiline
               numberOfLines={3}
             />
 
             {(!profile?.lat || !profile?.lng) && (
-              <View style={styles.warningBox}>
-                <Text style={styles.warningText}>
+              <View className="mt-4 p-3 bg-red-50 border border-red-100 rounded-xl">
+                <Text className="text-sm text-red-600 leading-5">
                   ⚠️ Your profile is missing location coordinates. Please update your profile on the web app to enable checkout.
                 </Text>
               </View>
             )}
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Payment Method</Text>
+          <View className="bg-white p-4 rounded-2xl mb-4 border border-gray-100 shadow-sm">
+            <Text className="text-lg font-bold text-gray-800 mb-4">Payment Method</Text>
 
             <TouchableOpacity
-              style={[styles.paymentCard, paymentMethod === 'ONLINE' && styles.paymentCardSelected]}
+              className={`flex-row items-center p-4 rounded-xl border-2 mb-3 ${paymentMethod === "ONLINE" ? "border-primary bg-green-50" : "border-gray-100 bg-white"}`}
               onPress={() => setPaymentMethod('ONLINE')}
             >
               <CreditCard size={24} color={paymentMethod === 'ONLINE' ? Colors.light.primary : Colors.light.icon} />
-              <View style={styles.paymentCardText}>
-                <Text style={[styles.paymentTitle, paymentMethod === 'ONLINE' && styles.paymentTitleSelected]}>Pay Online</Text>
-                <Text style={styles.paymentDesc}>Credit/Debit Card, UPI, Netbanking</Text>
+              <View className="flex-1 mx-3">
+                <Text className={`text-base font-bold ${paymentMethod === "ONLINE" ? "text-primary-dark" : "text-gray-800"}`}>Pay Online</Text>
+                <Text className="text-xs text-gray-500 mt-1">Credit/Debit Card, UPI, Netbanking</Text>
               </View>
-              {paymentMethod === 'ONLINE' && <View style={styles.radioSelected} />}
+              {paymentMethod === 'ONLINE' && <View className="w-5 h-5 rounded-full border-[5px] border-primary bg-white" />}
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.paymentCard, paymentMethod === 'COD' && styles.paymentCardSelected]}
+              className={`flex-row items-center p-4 rounded-xl border-2 mb-3 ${paymentMethod === "COD" ? "border-primary bg-green-50" : "border-gray-100 bg-white"}`}
               onPress={() => setPaymentMethod('COD')}
             >
               <Truck size={24} color={paymentMethod === 'COD' ? Colors.light.primary : Colors.light.icon} />
-              <View style={styles.paymentCardText}>
-                <Text style={[styles.paymentTitle, paymentMethod === 'COD' && styles.paymentTitleSelected]}>Cash on Delivery</Text>
-                <Text style={styles.paymentDesc}>Pay when you receive the order</Text>
+              <View className="flex-1 mx-3">
+                <Text className={`text-base font-bold ${paymentMethod === "COD" ? "text-primary-dark" : "text-gray-800"}`}>Cash on Delivery</Text>
+                <Text className="text-xs text-gray-500 mt-1">Pay when you receive the order</Text>
               </View>
-              {paymentMethod === 'COD' && <View style={styles.radioSelected} />}
+              {paymentMethod === 'COD' && <View className="w-5 h-5 rounded-full border-[5px] border-primary bg-white" />}
             </TouchableOpacity>
           </View>
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100">
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+            className={`flex-row justify-center items-center py-4 rounded-2xl bg-primary ${loading ? "opacity-70" : ""}`}
             onPress={onCheckoutPress}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>
+              <Text className="text-white font-bold text-lg">
                 {paymentMethod === 'COD' ? 'Place Order (COD)' : 'Proceed to Payment'}
               </Text>
             )}
@@ -218,87 +270,4 @@ export default function CheckoutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f3f4f6' },
-  header: {
-    backgroundColor: Colors.light.background,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.light.text },
-  scrollContent: { padding: 16, paddingBottom: 8 },
-  section: {
-    backgroundColor: Colors.light.background,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: Colors.light.text, marginBottom: 16 },
-  label: { fontSize: 13, fontWeight: '600', color: Colors.light.text, marginBottom: 6 },
-  input: {
-    backgroundColor: '#f9fafb',
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 14,
-    fontSize: 15,
-    color: Colors.light.text,
-  },
-  textArea: { height: 80, textAlignVertical: 'top' },
-  warningBox: {
-    backgroundColor: '#fffbeb',
-    borderWidth: 1,
-    borderColor: '#fde68a',
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 4,
-  },
-  warningText: { fontSize: 13, color: '#92400e', lineHeight: 18 },
-  paymentCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderWidth: 2,
-    borderColor: Colors.light.border,
-    borderRadius: 12,
-    marginBottom: 12,
-    gap: 14,
-  },
-  paymentCardSelected: { borderColor: Colors.light.primary, backgroundColor: '#f0fdf4' },
-  paymentCardText: { flex: 1 },
-  paymentTitle: { fontSize: 15, fontWeight: 'bold', color: Colors.light.text },
-  paymentTitleSelected: { color: Colors.light.primaryDark },
-  paymentDesc: { fontSize: 12, color: Colors.light.icon, marginTop: 2 },
-  radioSelected: {
-    width: 18, height: 18, borderRadius: 9,
-    backgroundColor: Colors.light.primary,
-  },
-  footer: {
-    backgroundColor: Colors.light.background,
-    padding: 16,
-    paddingBottom: 24,
-    borderTopWidth: 1,
-    borderTopColor: Colors.light.border,
-  },
-  button: {
-    backgroundColor: Colors.light.primary,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  buttonDisabled: { opacity: 0.7 },
-  buttonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
-});
+

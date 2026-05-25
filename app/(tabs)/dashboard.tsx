@@ -1,19 +1,19 @@
 import React, { useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
+  View, Text, TouchableOpacity, ScrollView,
   ActivityIndicator, RefreshControl, Alert, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Colors } from '@/constants/Colors';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useApiClient } from '@/services/api';
 import { useUserStore } from '@/store/userStore';
 import { useCartStore } from '@/store/cartStore';
 import {
   Package, Truck, Activity, User as UserIcon,
-  Bell, LogOut, ChevronRight, ShoppingBag,
+  LogOut, ChevronRight, ShoppingBag, PlusCircle, ClipboardList,
 } from 'lucide-react-native';
+import { MotiView, MotiScrollView } from 'moti';
 
 const ROLE_LABELS: Record<string, string> = {
   farmer: '🌾 Farmer',
@@ -24,10 +24,10 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const SELLING_STATUS_COLORS: Record<string, string> = {
-  APPROVED: '#16a34a',
-  PENDING: '#f59e0b',
-  REJECTED: '#ef4444',
-  NONE: '#6b7280',
+  APPROVED: 'text-green-600 bg-green-100',
+  PENDING: 'text-yellow-600 bg-yellow-100',
+  REJECTED: 'text-red-600 bg-red-100',
+  NONE: 'text-gray-600 bg-gray-100',
 };
 
 export default function DashboardScreen() {
@@ -38,7 +38,6 @@ export default function DashboardScreen() {
   const { profile, role, loading, fetchProfile } = useUserStore();
   const { clearLocalCart } = useCartStore();
 
-  // Re-fetch profile every time dashboard is focused
   useFocusEffect(
     useCallback(() => {
       fetchProfile(api);
@@ -89,7 +88,8 @@ export default function DashboardScreen() {
         subtitle: 'View all purchases',
         icon: ShoppingBag,
         color: '#3b82f6',
-        bgColor: '#eff6ff',
+        bgColor: 'bg-blue-50',
+        iconBg: 'bg-blue-100',
         onPress: () => router.push('/orders'),
       },
     ];
@@ -102,9 +102,42 @@ export default function DashboardScreen() {
           title: 'My Listings',
           subtitle: 'Manage your products',
           icon: Package,
-          color: Colors.light.primary,
-          bgColor: '#f0fdf4',
-          onPress: () => Alert.alert('Coming Soon', 'Manage listings is available on the web app.'),
+          color: '#16a34a',
+          bgColor: 'bg-green-50',
+          iconBg: 'bg-green-100',
+          onPress: () => {
+            if (sellingStatus !== 'APPROVED') {
+              Alert.alert('Account Pending', 'Your seller profile is pending approval by an admin. You cannot manage listings yet.');
+            } else {
+              router.push('/my-listings');
+            }
+          },
+        },
+        {
+          id: 'create',
+          title: 'Add Listing',
+          subtitle: 'Sell new produce',
+          icon: PlusCircle,
+          color: '#0ea5e9',
+          bgColor: 'bg-sky-50',
+          iconBg: 'bg-sky-100',
+          onPress: () => {
+            if (sellingStatus !== 'APPROVED') {
+              Alert.alert('Account Pending', 'Your seller profile is pending approval by an admin.');
+            } else {
+              router.push('/create-listing');
+            }
+          },
+        },
+        {
+          id: 'manage-orders',
+          title: 'Manage Orders',
+          subtitle: 'Fulfill customer orders',
+          icon: ClipboardList,
+          color: '#f59e0b',
+          bgColor: 'bg-amber-50',
+          iconBg: 'bg-amber-100',
+          onPress: () => router.push('/manage-orders'),
         },
         {
           id: 'earnings',
@@ -112,8 +145,9 @@ export default function DashboardScreen() {
           subtitle: 'Sales & payouts',
           icon: Activity,
           color: '#8b5cf6',
-          bgColor: '#f5f3ff',
-          onPress: () => Alert.alert('Coming Soon', 'Earnings report is available on the web app.'),
+          bgColor: 'bg-purple-50',
+          iconBg: 'bg-purple-100',
+          onPress: () => router.push('/sales'),
         },
       ];
     }
@@ -126,7 +160,8 @@ export default function DashboardScreen() {
           subtitle: 'Jobs & history',
           icon: Truck,
           color: '#f59e0b',
-          bgColor: '#fffbeb',
+          bgColor: 'bg-amber-50',
+          iconBg: 'bg-amber-100',
           onPress: () => Alert.alert('Coming Soon', 'Delivery jobs are available on the web app.'),
         },
       ];
@@ -137,183 +172,112 @@ export default function DashboardScreen() {
 
   if (loading && !profile) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={Colors.light.primary} />
-        </View>
+      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
+        <ActivityIndicator size="large" color="#16a34a" />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <MotiScrollView
+        contentContainerClassName="px-4 pb-10 pt-4"
         refreshControl={
           <RefreshControl
             refreshing={loading}
             onRefresh={() => fetchProfile(api)}
-            colors={[Colors.light.primary]}
+            colors={['#16a34a']}
           />
         }
       >
-        {/* Profile Header Card */}
-        <View style={styles.profileCard}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{displayName[0]?.toUpperCase() || 'U'}</Text>
+        <MotiView
+          from={{ opacity: 0, translateY: -10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 500 }}
+          className="flex-row items-center bg-white rounded-3xl p-5 mb-6 shadow-sm border border-gray-100"
+        >
+          <View className="w-16 h-16 rounded-full bg-primary items-center justify-center shadow-sm">
+            <Text className="text-white text-3xl font-bold">{displayName[0]?.toUpperCase() || 'U'}</Text>
           </View>
-          <View style={styles.profileInfo}>
-            <Text style={styles.displayName} numberOfLines={1}>{displayName}</Text>
-            <Text style={styles.email} numberOfLines={1}>
+          <View className="ml-4 flex-1">
+            <Text className="text-xl font-bold text-gray-900" numberOfLines={1}>{displayName}</Text>
+            <Text className="text-sm text-gray-500 mb-2" numberOfLines={1}>
               {user?.primaryEmailAddress?.emailAddress || ''}
             </Text>
-            <View style={styles.badgeRow}>
-              <View style={styles.roleBadge}>
-                <Text style={styles.roleBadgeText}>{displayRole}</Text>
+            <View className="flex-row gap-2 flex-wrap">
+              <View className="bg-green-100 px-3 py-1 rounded-full">
+                <Text className="text-xs font-bold text-green-700">{displayRole}</Text>
               </View>
               {(role === 'farmer' || role === 'agent') && sellingStatus !== 'NONE' && (
-                <View style={[styles.statusBadge, { backgroundColor: SELLING_STATUS_COLORS[sellingStatus] + '22' }]}>
-                  <Text style={[styles.statusBadgeText, { color: SELLING_STATUS_COLORS[sellingStatus] }]}>
+                <View className={`px-3 py-1 rounded-full ${SELLING_STATUS_COLORS[sellingStatus].split(' ')[1]}`}>
+                  <Text className={`text-xs font-bold ${SELLING_STATUS_COLORS[sellingStatus].split(' ')[0]}`}>
                     {sellingStatus}
                   </Text>
                 </View>
               )}
             </View>
           </View>
-        </View>
+        </MotiView>
 
-        {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.actionsGrid}>
-          {getQuickActions().map((action) => {
+        <Text className="text-lg font-bold text-gray-900 mb-3 px-1">Quick Actions</Text>
+        <View className="flex-row flex-wrap gap-3 mb-8">
+          {getQuickActions().map((action, index) => {
             const Icon = action.icon;
             return (
-              <TouchableOpacity
+              <MotiView
                 key={action.id}
-                style={[styles.actionCard, { backgroundColor: action.bgColor }]}
-                onPress={action.onPress}
-                activeOpacity={0.8}
+                from={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', delay: index * 100 }}
+                style={{ width: '48%' }}
               >
-                <View style={[styles.actionIconBg, { backgroundColor: action.color + '22' }]}>
-                  <Icon color={action.color} size={26} />
-                </View>
-                <Text style={styles.actionTitle}>{action.title}</Text>
-                <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  className={`${action.bgColor} p-4 rounded-3xl shadow-sm border border-white`}
+                  onPress={action.onPress}
+                  activeOpacity={0.8}
+                >
+                  <View className={`w-12 h-12 rounded-full ${action.iconBg} items-center justify-center mb-3`}>
+                    <Icon color={action.color} size={24} />
+                  </View>
+                  <Text className="text-base font-bold text-gray-900 mb-1">{action.title}</Text>
+                  <Text className="text-xs text-gray-500">{action.subtitle}</Text>
+                </TouchableOpacity>
+              </MotiView>
             );
           })}
         </View>
 
-        {/* Account Section */}
-        <Text style={styles.sectionTitle}>Account</Text>
-        <View style={styles.menuList}>
-          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/edit-profile')}>
-            <UserIcon color={Colors.light.icon} size={20} />
-            <Text style={styles.menuItemText}>Edit Profile</Text>
-            <ChevronRight color={Colors.light.icon} size={18} style={styles.menuChevron} />
+        <Text className="text-lg font-bold text-gray-900 mb-3 px-1">Account</Text>
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 600, delay: 200 }}
+          className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100"
+        >
+          <TouchableOpacity className="flex-row items-center p-5 border-b border-gray-100" onPress={() => router.push('/edit-profile')}>
+            <View className="w-10 h-10 rounded-full bg-gray-50 items-center justify-center mr-4">
+              <UserIcon color="#6b7280" size={20} />
+            </View>
+            <Text className="text-base font-semibold text-gray-800 flex-1">Edit Profile</Text>
+            <ChevronRight color="#9ca3af" size={20} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/orders')}>
-            <ShoppingBag color={Colors.light.icon} size={20} />
-            <Text style={styles.menuItemText}>Order History</Text>
-            <ChevronRight color={Colors.light.icon} size={18} style={styles.menuChevron} />
+          <TouchableOpacity className="flex-row items-center p-5 border-b border-gray-100" onPress={() => router.push('/orders')}>
+            <View className="w-10 h-10 rounded-full bg-gray-50 items-center justify-center mr-4">
+              <ShoppingBag color="#6b7280" size={20} />
+            </View>
+            <Text className="text-base font-semibold text-gray-800 flex-1">Order History</Text>
+            <ChevronRight color="#9ca3af" size={20} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.menuItem, styles.signOutItem]} onPress={handleSignOut}>
-            <LogOut color={Colors.light.error} size={20} />
-            <Text style={[styles.menuItemText, styles.signOutText]}>Sign Out</Text>
+          <TouchableOpacity className="flex-row items-center p-5" onPress={handleSignOut}>
+            <View className="w-10 h-10 rounded-full bg-red-50 items-center justify-center mr-4">
+              <LogOut color="#ef4444" size={20} />
+            </View>
+            <Text className="text-base font-semibold text-red-500 flex-1">Sign Out</Text>
           </TouchableOpacity>
-        </View>
-      </ScrollView>
+        </MotiView>
+      </MotiScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f3f4f6' },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  scrollContent: { padding: 16, paddingBottom: 40 },
-  profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.light.background,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  avatarCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Colors.light.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: { color: '#fff', fontSize: 26, fontWeight: 'bold' },
-  profileInfo: { marginLeft: 14, flex: 1 },
-  displayName: { fontSize: 18, fontWeight: 'bold', color: Colors.light.text },
-  email: { fontSize: 12, color: Colors.light.icon, marginBottom: 6 },
-  badgeRow: { flexDirection: 'row', gap: 6 },
-  roleBadge: {
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  roleBadgeText: { fontSize: 11, fontWeight: 'bold', color: Colors.light.primaryDark },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  statusBadgeText: { fontSize: 11, fontWeight: 'bold' },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: Colors.light.text, marginBottom: 12 },
-  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
-  actionCard: {
-    width: '47%',
-    padding: 16,
-    borderRadius: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  actionIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  actionTitle: { fontSize: 14, fontWeight: 'bold', color: Colors.light.text, marginBottom: 2 },
-  actionSubtitle: { fontSize: 11, color: Colors.light.icon },
-  menuList: {
-    backgroundColor: Colors.light.background,
-    borderRadius: 14,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
-    gap: 12,
-  },
-  menuItemText: { fontSize: 15, color: Colors.light.text, flex: 1 },
-  menuChevron: { marginLeft: 'auto' },
-  signOutItem: { borderBottomWidth: 0 },
-  signOutText: { color: Colors.light.error },
-});

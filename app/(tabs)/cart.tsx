@@ -1,21 +1,20 @@
 import React, { useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  View, Text, FlatList, TouchableOpacity,
   ActivityIndicator, Image, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Colors } from '@/constants/Colors';
 import { useCartStore } from '@/store/cartStore';
 import { useApiClient } from '@/services/api';
 import { Plus, Minus, Trash2, Package, ShoppingCart } from 'lucide-react-native';
+import { MotiView } from 'moti';
 
 export default function CartScreen() {
   const { items, loading, error, fetchCart, updateQuantity, removeFromCart } = useCartStore();
   const api = useApiClient();
   const router = useRouter();
 
-  // Re-fetch every time the cart tab is focused → cross-platform sync
   useFocusEffect(
     useCallback(() => {
       fetchCart(api);
@@ -33,80 +32,87 @@ export default function CartScreen() {
     ]);
   };
 
-  const renderItem = ({ item }: { item: any }) => {
+  const renderItem = ({ item, index }: { item: any; index: number }) => {
     const imageUrl = item.product.images?.[0];
     return (
-      <View style={styles.cartItem}>
+      <MotiView
+        from={{ opacity: 0, translateX: -20 }}
+        animate={{ opacity: 1, translateX: 0 }}
+        transition={{ type: 'timing', duration: 400, delay: index * 100 }}
+        className="flex-row bg-white rounded-3xl p-3 mb-4 shadow-sm border border-gray-100"
+      >
         {imageUrl ? (
-          <Image source={{ uri: imageUrl }} style={styles.itemImage} resizeMode="cover" />
+          <Image source={{ uri: imageUrl }} className="w-24 h-24 rounded-2xl bg-gray-100" resizeMode="cover" />
         ) : (
-          <View style={[styles.itemImage, styles.placeholderImage]}>
-            <Package color={Colors.light.icon} size={24} />
+          <View className="w-24 h-24 rounded-2xl bg-gray-100 items-center justify-center">
+            <Package color="#9ca3af" size={28} />
           </View>
         )}
 
-        <View style={styles.itemDetails}>
-          <Text style={styles.itemName} numberOfLines={2}>{item.product.productName}</Text>
-          <Text style={styles.itemPrice}>₹{item.product.pricePerUnit} / {item.product.unit}</Text>
-          <Text style={styles.itemSubtotal}>Subtotal: ₹{(item.quantity * item.product.pricePerUnit).toFixed(2)}</Text>
+        <View className="flex-1 ml-4 justify-between py-1">
+          <View>
+            <Text className="text-base font-bold text-gray-900 leading-tight mb-1" numberOfLines={2}>{item.product.productName}</Text>
+            <Text className="text-sm text-gray-500">₹{item.product.pricePerUnit} / {item.product.unit}</Text>
+          </View>
+          
+          <Text className="text-base font-extrabold text-primary-dark mt-1">₹{(item.quantity * item.product.pricePerUnit).toFixed(2)}</Text>
 
-          <View style={styles.quantityContainer}>
+          <View className="flex-row items-center mt-2">
             <TouchableOpacity
-              style={styles.qtyButton}
+              className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center border border-gray-200"
               onPress={() => item.quantity > 1
                 ? updateQuantity(api, item.id, item.quantity - 1)
                 : handleRemove(item.id, item.product.productName)
               }
             >
-              <Minus size={15} color={Colors.light.text} />
+              <Minus size={16} color="#374151" />
             </TouchableOpacity>
-            <Text style={styles.qtyText}>{item.quantity}</Text>
+            
+            <Text className="text-base font-bold mx-4 text-gray-800">{item.quantity}</Text>
+            
             <TouchableOpacity
-              style={styles.qtyButton}
+              className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center border border-gray-200"
               onPress={() => updateQuantity(api, item.id, item.quantity + 1)}
             >
-              <Plus size={15} color={Colors.light.text} />
+              <Plus size={16} color="#374151" />
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.deleteButton}
+              className="ml-auto p-2"
               onPress={() => handleRemove(item.id, item.product.productName)}
             >
-              <Trash2 size={18} color={Colors.light.error} />
+              <Trash2 size={20} color="#ef4444" />
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </MotiView>
     );
   };
 
   if (loading && items.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>My Cart</Text>
-        </View>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={Colors.light.primary} />
-        </View>
+      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
+        <ActivityIndicator size="large" color="#16a34a" />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Cart</Text>
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <View className="bg-white px-4 py-4 border-b border-gray-100 flex-row items-center justify-between">
+        <Text className="text-2xl font-extrabold text-gray-900 tracking-tight">My Cart</Text>
         {items.length > 0 && (
-          <Text style={styles.itemCount}>{items.length} item{items.length > 1 ? 's' : ''}</Text>
+          <View className="bg-green-100 px-3 py-1 rounded-full">
+            <Text className="text-sm font-bold text-green-700">{items.length} items</Text>
+          </View>
         )}
       </View>
 
       {error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => fetchCart(api)}>
-            <Text style={styles.retryText}>Retry</Text>
+        <View className="flex-1 items-center justify-center p-6">
+          <Text className="text-red-500 text-base text-center mb-4">{error}</Text>
+          <TouchableOpacity className="bg-primary px-6 py-3 rounded-xl" onPress={() => fetchCart(api)}>
+            <Text className="text-white font-bold">Retry</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -115,117 +121,56 @@ export default function CartScreen() {
             data={items}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
-            contentContainerStyle={styles.listContent}
+            contentContainerClassName="p-4 pt-6"
             ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <ShoppingCart color={Colors.light.icon} size={64} />
-                <Text style={styles.emptyTitle}>Your cart is empty</Text>
-                <Text style={styles.emptySubtitle}>Browse the marketplace and add items!</Text>
-                <TouchableOpacity style={styles.shopButton} onPress={() => router.push('/(tabs)')}>
-                  <Text style={styles.shopButtonText}>Shop Now</Text>
+              <MotiView
+                from={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="items-center justify-center pt-24 pb-10"
+              >
+                <View className="w-24 h-24 rounded-full bg-green-50 items-center justify-center mb-6 border-4 border-green-100">
+                  <ShoppingCart color="#16a34a" size={40} />
+                </View>
+                <Text className="text-2xl font-bold text-gray-900 mb-2">Your cart is empty</Text>
+                <Text className="text-base text-gray-500 text-center mb-8 px-10">Browse the marketplace and add fresh products!</Text>
+                <TouchableOpacity 
+                  className="bg-primary px-8 py-4 rounded-2xl shadow-sm"
+                  onPress={() => router.push('/(tabs)')}
+                >
+                  <Text className="text-white font-bold text-lg">Shop Now</Text>
                 </TouchableOpacity>
-              </View>
+              </MotiView>
             }
           />
 
           {items.length > 0 && (
-            <View style={styles.footer}>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Total ({items.length} items)</Text>
-                <Text style={styles.summaryValue}>₹{totalAmount.toFixed(2)}</Text>
+            <MotiView
+              from={{ opacity: 0, translateY: 20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              className="bg-white p-6 border-t border-gray-100 rounded-t-3xl shadow-lg"
+              style={{
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: -4 },
+                shadowOpacity: 0.05,
+                shadowRadius: 8,
+                elevation: 10,
+              }}
+            >
+              <View className="flex-row justify-between items-center mb-1">
+                <Text className="text-base text-gray-500 font-medium">Total</Text>
+                <Text className="text-2xl font-extrabold text-gray-900">₹{totalAmount.toFixed(2)}</Text>
               </View>
-              <Text style={styles.deliveryNote}>Delivery charges calculated at checkout</Text>
+              <Text className="text-xs text-gray-400 mb-5">Delivery charges calculated at checkout</Text>
               <TouchableOpacity
-                style={styles.checkoutButton}
+                className="bg-primary py-4 rounded-2xl items-center shadow-md flex-row justify-center"
                 onPress={() => router.push('/checkout')}
               >
-                <Text style={styles.checkoutButtonText}>Proceed to Checkout →</Text>
+                <Text className="text-white text-lg font-bold">Proceed to Checkout</Text>
               </TouchableOpacity>
-            </View>
+            </MotiView>
           )}
         </>
       )}
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f3f4f6' },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: {
-    backgroundColor: Colors.light.background,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.light.text },
-  itemCount: { fontSize: 13, color: Colors.light.icon },
-  listContent: { padding: 12 },
-  cartItem: {
-    flexDirection: 'row',
-    backgroundColor: Colors.light.background,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  itemImage: { width: 90, height: 90, borderRadius: 8, backgroundColor: '#e5e7eb' },
-  placeholderImage: { justifyContent: 'center', alignItems: 'center' },
-  itemDetails: { flex: 1, marginLeft: 12, justifyContent: 'space-between' },
-  itemName: { fontSize: 14, fontWeight: 'bold', color: Colors.light.text, lineHeight: 20 },
-  itemPrice: { fontSize: 13, color: Colors.light.icon },
-  itemSubtotal: { fontSize: 14, fontWeight: '600', color: Colors.light.primaryDark },
-  quantityContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
-  qtyButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#f3f4f6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-  },
-  qtyText: { fontSize: 15, fontWeight: 'bold', marginHorizontal: 12, color: Colors.light.text },
-  deleteButton: { marginLeft: 'auto', padding: 6 },
-  footer: {
-    backgroundColor: Colors.light.background,
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: Colors.light.border,
-  },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  summaryLabel: { fontSize: 15, color: Colors.light.text },
-  summaryValue: { fontSize: 22, fontWeight: 'bold', color: Colors.light.text },
-  deliveryNote: { fontSize: 12, color: Colors.light.icon, marginBottom: 16 },
-  checkoutButton: {
-    backgroundColor: Colors.light.primary,
-    paddingVertical: 15,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  checkoutButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  errorText: { color: Colors.light.error, fontSize: 15, textAlign: 'center', marginBottom: 16 },
-  retryButton: { backgroundColor: Colors.light.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
-  retryText: { color: '#fff', fontWeight: 'bold' },
-  emptyContainer: { paddingTop: 80, alignItems: 'center', gap: 12 },
-  emptyTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.light.text },
-  emptySubtitle: { fontSize: 14, color: Colors.light.icon, textAlign: 'center' },
-  shopButton: {
-    backgroundColor: Colors.light.primary,
-    paddingHorizontal: 28,
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginTop: 8,
-  },
-  shopButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
-});

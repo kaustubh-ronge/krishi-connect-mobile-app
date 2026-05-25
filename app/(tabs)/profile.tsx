@@ -1,11 +1,10 @@
 import React, { useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
+  View, Text, TouchableOpacity, ScrollView,
   ActivityIndicator, Alert, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Colors } from '@/constants/Colors';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useApiClient } from '@/services/api';
 import { useUserStore } from '@/store/userStore';
@@ -14,6 +13,8 @@ import {
   User as UserIcon, Mail, Phone, MapPin,
   ShoppingBag, Edit3, LogOut, ChevronRight,
 } from 'lucide-react-native';
+import { MotiView, MotiScrollView } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const ROLE_LABELS: Record<string, string> = {
   farmer: 'Farmer',
@@ -23,10 +24,10 @@ const ROLE_LABELS: Record<string, string> = {
   none: 'New User',
 };
 
-const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  APPROVED: { bg: '#dcfce7', text: '#15803d' },
-  PENDING: { bg: '#fef9c3', text: '#a16207' },
-  REJECTED: { bg: '#fee2e2', text: '#b91c1c' },
+const STATUS_COLORS: Record<string, string> = {
+  APPROVED: 'text-green-700 bg-green-100 border-green-200',
+  PENDING: 'text-yellow-700 bg-yellow-100 border-yellow-200',
+  REJECTED: 'text-red-700 bg-red-100 border-red-200',
 };
 
 export default function ProfileScreen() {
@@ -83,192 +84,122 @@ export default function ProfileScreen() {
 
   if (loading && !profile) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>My Profile</Text>
-        </View>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={Colors.light.primary} />
-        </View>
+      <SafeAreaView className="flex-1 bg-white items-center justify-center">
+        <ActivityIndicator size="large" color="#16a34a" />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Profile</Text>
-        <TouchableOpacity onPress={() => router.push('/edit-profile')} style={styles.editHeaderBtn}>
-          <Edit3 size={20} color={Colors.light.primary} />
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <View className="bg-white px-4 py-4 border-b border-gray-100 flex-row items-center justify-between">
+        <Text className="text-xl font-bold text-gray-900">My Profile</Text>
+        <TouchableOpacity onPress={() => router.push('/edit-profile')} className="p-2">
+          <Edit3 size={20} color="#16a34a" />
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <MotiScrollView contentContainerClassName="p-4 pb-10">
         {/* Avatar + Name */}
-        <View style={styles.avatarSection}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{displayName[0]?.toUpperCase() || 'U'}</Text>
+        <MotiView
+          from={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'timing', duration: 500 }}
+          className="items-center mb-8 mt-4"
+        >
+          <View className="w-24 h-24 rounded-full bg-primary items-center justify-center shadow-md mb-4 border-4 border-green-50">
+            <Text className="text-white text-4xl font-bold">{displayName[0]?.toUpperCase() || 'U'}</Text>
           </View>
-          <Text style={styles.displayName}>{displayName}</Text>
-          <View style={styles.roleBadge}>
-            <Text style={styles.roleBadgeText}>{ROLE_LABELS[role] || role || 'User'}</Text>
+          <Text className="text-2xl font-bold text-gray-900 mb-2">{displayName}</Text>
+          <View className="bg-green-100 px-4 py-1.5 rounded-full mb-3">
+            <Text className="text-sm font-bold text-green-800">{ROLE_LABELS[role] || role || 'User'}</Text>
           </View>
           {sellingStatus && STATUS_COLORS[sellingStatus] && (
-            <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[sellingStatus].bg }]}>
-              <Text style={[styles.statusBadgeText, { color: STATUS_COLORS[sellingStatus].text }]}>
+            <View className={`px-4 py-1.5 rounded-full border ${STATUS_COLORS[sellingStatus]}`}>
+              <Text className="text-sm font-semibold opacity-90">
                 {sellingStatus === 'PENDING' ? '⏳ Approval Pending' :
                  sellingStatus === 'APPROVED' ? '✅ Approved Seller' :
                  '❌ Application Rejected'}
               </Text>
             </View>
           )}
-        </View>
+        </MotiView>
 
         {/* Info Cards */}
-        <View style={styles.infoCard}>
-          <Text style={styles.infoCardTitle}>Account Information</Text>
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 600, delay: 100 }}
+          className="bg-white rounded-3xl p-5 mb-6 shadow-sm border border-gray-100"
+        >
+          <Text className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-wider">Account Information</Text>
 
-          <View style={styles.infoRow}>
-            <Mail color={Colors.light.icon} size={16} />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Email</Text>
-              <Text style={styles.infoValue}>{email || 'Not set'}</Text>
+          <View className="flex-row items-center py-3 border-b border-gray-50 mb-1">
+            <View className="w-10 h-10 rounded-full bg-blue-50 items-center justify-center mr-4">
+              <Mail color="#3b82f6" size={18} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-xs text-gray-500 mb-1">Email</Text>
+              <Text className="text-base text-gray-900 font-medium">{email || 'Not set'}</Text>
             </View>
           </View>
 
           {phone ? (
-            <View style={styles.infoRow}>
-              <Phone color={Colors.light.icon} size={16} />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Phone</Text>
-                <Text style={styles.infoValue}>{phone}</Text>
+            <View className="flex-row items-center py-3 border-b border-gray-50 mb-1">
+              <View className="w-10 h-10 rounded-full bg-green-50 items-center justify-center mr-4">
+                <Phone color="#10b981" size={18} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-xs text-gray-500 mb-1">Phone</Text>
+                <Text className="text-base text-gray-900 font-medium">{phone}</Text>
               </View>
             </View>
           ) : null}
 
           {address ? (
-            <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-              <MapPin color={Colors.light.icon} size={16} />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Address</Text>
-                <Text style={styles.infoValue}>{address}</Text>
+            <View className="flex-row items-center py-3">
+              <View className="w-10 h-10 rounded-full bg-purple-50 items-center justify-center mr-4">
+                <MapPin color="#8b5cf6" size={18} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-xs text-gray-500 mb-1">Address</Text>
+                <Text className="text-base text-gray-900 font-medium">{address}</Text>
               </View>
             </View>
           ) : null}
-        </View>
+        </MotiView>
 
         {/* Menu */}
-        <View style={styles.menuList}>
-          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/edit-profile')}>
-            <Edit3 color={Colors.light.icon} size={20} />
-            <Text style={styles.menuItemText}>Edit Profile</Text>
-            <ChevronRight color={Colors.light.icon} size={18} />
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 600, delay: 200 }}
+          className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100"
+        >
+          <TouchableOpacity className="flex-row items-center p-5 border-b border-gray-50" onPress={() => router.push('/edit-profile')}>
+            <View className="w-10 h-10 rounded-full bg-gray-50 items-center justify-center mr-4">
+              <Edit3 color="#6b7280" size={20} />
+            </View>
+            <Text className="text-base font-semibold text-gray-800 flex-1">Edit Profile</Text>
+            <ChevronRight color="#9ca3af" size={20} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/orders')}>
-            <ShoppingBag color={Colors.light.icon} size={20} />
-            <Text style={styles.menuItemText}>My Orders</Text>
-            <ChevronRight color={Colors.light.icon} size={18} />
+          <TouchableOpacity className="flex-row items-center p-5 border-b border-gray-50" onPress={() => router.push('/orders')}>
+            <View className="w-10 h-10 rounded-full bg-gray-50 items-center justify-center mr-4">
+              <ShoppingBag color="#6b7280" size={20} />
+            </View>
+            <Text className="text-base font-semibold text-gray-800 flex-1">My Orders</Text>
+            <ChevronRight color="#9ca3af" size={20} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]} onPress={handleSignOut}>
-            <LogOut color={Colors.light.error} size={20} />
-            <Text style={[styles.menuItemText, { color: Colors.light.error }]}>Sign Out</Text>
+          <TouchableOpacity className="flex-row items-center p-5" onPress={handleSignOut}>
+            <View className="w-10 h-10 rounded-full bg-red-50 items-center justify-center mr-4">
+              <LogOut color="#ef4444" size={20} />
+            </View>
+            <Text className="text-base font-semibold text-red-500 flex-1">Sign Out</Text>
           </TouchableOpacity>
-        </View>
-      </ScrollView>
+        </MotiView>
+      </MotiScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f3f4f6' },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: {
-    backgroundColor: Colors.light.background,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.light.text },
-  editHeaderBtn: { padding: 4 },
-  scrollContent: { padding: 16, paddingBottom: 40 },
-  avatarSection: { alignItems: 'center', marginBottom: 24 },
-  avatarCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: Colors.light.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  avatarText: { color: '#fff', fontSize: 36, fontWeight: 'bold' },
-  displayName: { fontSize: 22, fontWeight: 'bold', color: Colors.light.text, marginBottom: 8 },
-  roleBadge: {
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  roleBadgeText: { fontSize: 13, fontWeight: 'bold', color: Colors.light.primaryDark },
-  statusBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginTop: 4,
-  },
-  statusBadgeText: { fontSize: 13, fontWeight: '600' },
-  infoCard: {
-    backgroundColor: Colors.light.background,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  infoCardTitle: { fontSize: 14, fontWeight: 'bold', color: Colors.light.icon, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
-    gap: 12,
-  },
-  infoContent: { flex: 1 },
-  infoLabel: { fontSize: 12, color: Colors.light.icon, marginBottom: 2 },
-  infoValue: { fontSize: 15, color: Colors.light.text, fontWeight: '500' },
-  menuList: {
-    backgroundColor: Colors.light.background,
-    borderRadius: 14,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
-    gap: 12,
-  },
-  menuItemText: { fontSize: 15, color: Colors.light.text, flex: 1 },
-});

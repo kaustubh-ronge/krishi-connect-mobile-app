@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  View, Text, FlatList, TouchableOpacity,
   ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -65,31 +65,31 @@ export default function OrdersScreen() {
 
     return (
       <TouchableOpacity
-        style={styles.orderCard}
+        className="bg-white rounded-2xl p-4 mb-3 border border-gray-100 shadow-sm"
         onPress={() => router.push(`/order-detail/${item.id}`)}
         activeOpacity={0.85}
       >
-        <View style={styles.orderHeader}>
+        <View className="flex-row justify-between items-start mb-3">
           <View>
-            <Text style={styles.orderId}>Order #{item.invoiceNumber || item.id.slice(-8).toUpperCase()}</Text>
-            <Text style={styles.orderDate}>{date}</Text>
+            <Text className="text-base font-bold text-gray-900">Order #{item.invoiceNumber || item.id.slice(-8).toUpperCase()}</Text>
+            <Text className="text-xs text-gray-500 mt-1">{date}</Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-            <Text style={[styles.statusText, { color: statusStyle.text }]}>{statusStyle.label}</Text>
+          <View style={{ backgroundColor: statusStyle.bg }} className="px-2.5 py-1 rounded-xl">
+            <Text style={{ color: statusStyle.text }} className="text-xs font-bold">{statusStyle.label}</Text>
           </View>
         </View>
 
-        <View style={styles.orderMeta}>
+        <View className="flex-row items-center gap-1.5 mb-3">
           <Package color={Colors.light.icon} size={14} />
-          <Text style={styles.metaText}>{itemCount} item{itemCount !== 1 ? 's' : ''}</Text>
-          <Text style={styles.metaDot}>•</Text>
-          <Text style={[styles.paymentStatus, { color: paymentStyle.color }]}>
+          <Text className="text-sm text-gray-500">{itemCount} item{itemCount !== 1 ? 's' : ''}</Text>
+          <Text className="text-sm text-gray-500 mx-1">•</Text>
+          <Text style={{ color: paymentStyle.color }} className="text-sm font-medium">
             {item.paymentMethod === 'COD' ? 'COD' : `Online · ${paymentStyle.label}`}
           </Text>
         </View>
 
-        <View style={styles.orderFooter}>
-          <Text style={styles.totalAmount}>₹{Number(item.totalAmount || 0).toFixed(2)}</Text>
+        <View className="flex-row justify-between items-center pt-3 border-t border-gray-100">
+          <Text className="text-lg font-bold text-gray-900">₹{Number(item.totalAmount || 0).toFixed(2)}</Text>
           <ChevronRight color={Colors.light.icon} size={18} />
         </View>
       </TouchableOpacity>
@@ -97,23 +97,23 @@ export default function OrdersScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <View className="flex-row items-center px-4 py-3.5 bg-white border-b border-gray-100">
+        <TouchableOpacity onPress={() => router.back()} className="p-1">
           <ArrowLeft color={Colors.light.text} size={22} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Orders</Text>
+        <Text className="text-xl font-bold text-gray-900 ml-3">My Orders</Text>
       </View>
 
       {loading && !refreshing ? (
-        <View style={styles.centerContainer}>
+        <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color={Colors.light.primary} />
         </View>
       ) : error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => { setLoading(true); fetchOrders(); }}>
-            <Text style={styles.retryText}>Retry</Text>
+        <View className="flex-1 justify-center items-center p-6">
+          <Text className="text-red-500 text-base text-center mb-4">{error}</Text>
+          <TouchableOpacity className="bg-primary px-6 py-3 rounded-xl" onPress={() => { setLoading(true); fetchOrders(); }}>
+            <Text className="text-white font-bold">Retry</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -121,7 +121,7 @@ export default function OrdersScreen() {
           data={orders}
           keyExtractor={(item) => item.id}
           renderItem={renderOrder}
-          contentContainerStyle={styles.listContent}
+          contentContainerClassName="p-3 pb-20"
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -130,12 +130,12 @@ export default function OrdersScreen() {
             />
           }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
+            <View className="pt-20 items-center gap-3">
               <Package color={Colors.light.icon} size={56} />
-              <Text style={styles.emptyTitle}>No orders yet</Text>
-              <Text style={styles.emptySubtitle}>Your order history will appear here</Text>
-              <TouchableOpacity style={styles.shopButton} onPress={() => router.push('/(tabs)')}>
-                <Text style={styles.shopButtonText}>Browse Marketplace</Text>
+              <Text className="text-xl font-bold text-gray-900">No orders yet</Text>
+              <Text className="text-sm text-gray-500 text-center">Your order history will appear here</Text>
+              <TouchableOpacity className="bg-primary px-6 py-3 rounded-xl mt-2" onPress={() => router.push('/(tabs)')}>
+                <Text className="text-white font-bold text-base">Browse Marketplace</Text>
               </TouchableOpacity>
             </View>
           }
@@ -145,51 +145,4 @@ export default function OrdersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f3f4f6' },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: {
-    backgroundColor: Colors.light.background,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.light.text },
-  listContent: { padding: 12 },
-  orderCard: {
-    backgroundColor: Colors.light.background,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
-  orderId: { fontSize: 15, fontWeight: 'bold', color: Colors.light.text },
-  orderDate: { fontSize: 12, color: Colors.light.icon, marginTop: 2 },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  statusText: { fontSize: 12, fontWeight: '700' },
-  orderMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
-  metaText: { fontSize: 13, color: Colors.light.icon },
-  metaDot: { color: Colors.light.icon, fontSize: 13 },
-  paymentStatus: { fontSize: 13, fontWeight: '500' },
-  orderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: Colors.light.border, paddingTop: 10 },
-  totalAmount: { fontSize: 18, fontWeight: 'bold', color: Colors.light.text },
-  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  errorText: { color: Colors.light.error, fontSize: 15, textAlign: 'center', marginBottom: 16 },
-  retryButton: { backgroundColor: Colors.light.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
-  retryText: { color: '#fff', fontWeight: 'bold' },
-  emptyContainer: { paddingTop: 80, alignItems: 'center', gap: 12 },
-  emptyTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.light.text },
-  emptySubtitle: { fontSize: 14, color: Colors.light.icon, textAlign: 'center' },
-  shopButton: { backgroundColor: Colors.light.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10, marginTop: 8 },
-  shopButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
-});
+

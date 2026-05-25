@@ -1,14 +1,14 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, Image, ActivityIndicator,
+  View, Text, FlatList, Image, ActivityIndicator,
   TouchableOpacity, RefreshControl, TextInput,
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Colors } from '@/constants/Colors';
 import { useApiClient } from '@/services/api';
 import { MapPin, Package, Search, X } from 'lucide-react-native';
+import { MotiView } from 'moti';
 
 const CATEGORIES = ['All', 'Vegetables', 'Fruits', 'Grains', 'Dairy', 'Spices', 'Pulses', 'Others'];
 
@@ -21,13 +21,26 @@ export default function MarketplaceScreen() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [sortBy, setSortBy] = useState('newest');
+  const [sellerType, setSellerType] = useState('all');
+  const [regionFilter, setRegionFilter] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
-  const fetchProducts = useCallback(async (searchTerm = search, category = selectedCategory) => {
+  const fetchProducts = useCallback(async (
+    searchTerm = search, 
+    category = selectedCategory,
+    sort = sortBy,
+    seller = sellerType,
+    region = regionFilter
+  ) => {
     try {
       setError('');
       const params = new URLSearchParams({
         search: searchTerm,
         category,
+        sortBy: sort,
+        sellerType: seller,
+        region,
         limit: '20',
       });
       const response = await api.get(`mobile/v1/products?${params.toString()}`);
@@ -40,7 +53,6 @@ export default function MarketplaceScreen() {
     }
   }, [search, selectedCategory]);
 
-  // Re-fetch every time the screen is focused (cross-platform sync)
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
@@ -55,116 +67,188 @@ export default function MarketplaceScreen() {
 
   const onSearchSubmit = () => {
     setLoading(true);
-    fetchProducts(search, selectedCategory);
+    fetchProducts(search, selectedCategory, sortBy, sellerType, regionFilter);
   };
 
   const clearSearch = () => {
     setSearch('');
     setLoading(true);
-    fetchProducts('', selectedCategory);
+    fetchProducts('', selectedCategory, sortBy, sellerType, regionFilter);
   };
 
   const onCategorySelect = (cat: string) => {
     setSelectedCategory(cat);
     setLoading(true);
-    fetchProducts(search, cat);
+    fetchProducts(search, cat, sortBy, sellerType, regionFilter);
   };
 
-  const renderProduct = ({ item }: { item: any }) => {
+  const applyFilters = (newSortBy: string, newSellerType: string, newRegion: string = regionFilter) => {
+    setSortBy(newSortBy);
+    setSellerType(newSellerType);
+    setRegionFilter(newRegion);
+    setLoading(true);
+    fetchProducts(search, selectedCategory, newSortBy, newSellerType, newRegion);
+  };
+
+  const renderProduct = ({ item, index }: { item: any; index: number }) => {
     const imageUrl = item.images && item.images.length > 0 ? item.images[0] : null;
     const seller = item.farmer || item.agent;
     const sellerName = seller?.name || seller?.companyName || 'Unknown Seller';
     const location = seller?.district ? `${seller.district}${seller.region ? ', ' + seller.region : ''}` : 'Location hidden';
 
     return (
-      <TouchableOpacity
-        style={styles.card}
-        activeOpacity={0.85}
-        onPress={() => router.push(`/product/${item.id}`)}
+      <MotiView
+        from={{ opacity: 0, translateY: 20 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: 'timing', duration: 400, delay: index * 50 }}
+        style={{ width: '48%' }}
+        className="mb-4"
       >
-        {imageUrl ? (
-          <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
-        ) : (
-          <View style={[styles.image, styles.imagePlaceholder]}>
-            <Package color={Colors.light.icon} size={32} />
+        <TouchableOpacity
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+          activeOpacity={0.85}
+          onPress={() => router.push(`/product/${item.id}`)}
+        >
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} className="w-full h-32 bg-gray-100" resizeMode="cover" />
+          ) : (
+            <View className="w-full h-32 bg-gray-100 items-center justify-center">
+              <Package color="#9ca3af" size={32} />
+            </View>
+          )}
+
+          <View className="p-3">
+            <Text className="text-sm font-bold text-gray-900 mb-1" numberOfLines={1}>{item.productName}</Text>
+            <Text className="text-base font-extrabold text-primary mb-2">
+              ₹{item.pricePerUnit} <Text className="text-xs font-medium text-gray-500">/ {item.unit}</Text>
+            </Text>
+
+            <View className="flex-row items-center mb-1">
+              <MapPin color="#6b7280" size={12} />
+              <Text className="text-xs text-gray-500 ml-1 flex-1" numberOfLines={1}>{location}</Text>
+            </View>
+
+            <Text className="text-xs text-gray-400 mb-2" numberOfLines={1}>By {sellerName}</Text>
+
+            <View className="bg-green-50 px-2 py-1 rounded border border-green-100 self-start">
+              <Text className="text-[10px] text-green-700 font-bold">{item.availableStock} {item.unit} avail.</Text>
+            </View>
           </View>
-        )}
-
-        <View style={styles.cardContent}>
-          <Text style={styles.productName} numberOfLines={1}>{item.productName}</Text>
-          <Text style={styles.price}>
-            ₹{item.pricePerUnit} <Text style={styles.unit}>/ {item.unit}</Text>
-          </Text>
-
-          <View style={styles.infoRow}>
-            <MapPin color={Colors.light.icon} size={12} />
-            <Text style={styles.infoText} numberOfLines={1}>{location}</Text>
-          </View>
-
-          <Text style={styles.sellerText} numberOfLines={1}>By {sellerName}</Text>
-
-          <View style={styles.stockBadge}>
-            <Text style={styles.stockText}>{item.availableStock} {item.unit} avail.</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </MotiView>
     );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>KrishiConnect Market</Text>
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <View className="bg-white px-4 py-4 border-b border-gray-100">
+        <Text className="text-2xl font-extrabold text-primary-dark tracking-tight">Marketplace</Text>
       </View>
 
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Search color={Colors.light.icon} size={18} style={styles.searchIcon} />
+      <View className="flex-row items-center bg-white mx-4 mt-4 mb-2 px-4 py-3 rounded-2xl border border-gray-200 shadow-sm">
+        <Search color="#6b7280" size={18} className="mr-2" />
         <TextInput
-          style={styles.searchInput}
-          placeholder="Search products..."
-          placeholderTextColor={Colors.light.icon}
+          className="flex-1 text-base text-gray-800"
+          placeholder="Search fresh products..."
+          placeholderTextColor="#9ca3af"
           value={search}
           onChangeText={setSearch}
           onSubmitEditing={onSearchSubmit}
           returnKeyType="search"
         />
         {search.length > 0 && (
-          <TouchableOpacity onPress={clearSearch}>
-            <X color={Colors.light.icon} size={18} />
+          <TouchableOpacity onPress={clearSearch} className="p-1">
+            <X color="#9ca3af" size={18} />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Category Chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoryScroll}
+      <View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerClassName="px-4 py-2 gap-x-2"
+        >
+          {CATEGORIES.map((cat) => (
+            <TouchableOpacity
+              key={cat}
+              className={`px-4 py-2 rounded-full border ${selectedCategory === cat ? 'bg-primary border-primary' : 'bg-white border-gray-200'}`}
+              onPress={() => onCategorySelect(cat)}
+            >
+              <Text className={`text-sm font-semibold ${selectedCategory === cat ? 'text-white' : 'text-gray-600'}`}>
+                {cat}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      <TouchableOpacity 
+        className="mx-4 mt-2 mb-2 self-start flex-row items-center"
+        onPress={() => setShowFilters(!showFilters)}
       >
-        {CATEGORIES.map((cat) => (
-          <TouchableOpacity
-            key={cat}
-            style={[styles.chip, selectedCategory === cat && styles.chipSelected]}
-            onPress={() => onCategorySelect(cat)}
-          >
-            <Text style={[styles.chipText, selectedCategory === cat && styles.chipTextSelected]}>
-              {cat}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+        <Text className="text-primary font-bold">{showFilters ? 'Hide Filters' : 'Advanced Filters'}</Text>
+      </TouchableOpacity>
+
+      {showFilters && (
+        <View className="bg-white mx-4 p-4 rounded-xl shadow-sm border border-gray-100 mb-2">
+          <Text className="font-bold text-gray-800 mb-2">Sort By</Text>
+          <View className="flex-row flex-wrap gap-2 mb-4">
+            {['newest', 'price_asc', 'price_desc'].map((s) => (
+              <TouchableOpacity
+                key={s}
+                onPress={() => applyFilters(s, sellerType)}
+                className={`px-3 py-1.5 rounded-lg border ${sortBy === s ? 'bg-primary border-primary' : 'bg-white border-gray-200'}`}
+              >
+                <Text className={`text-xs font-semibold ${sortBy === s ? 'text-white' : 'text-gray-600'}`}>
+                  {s === 'newest' ? 'Newest' : s === 'price_asc' ? 'Price: Low to High' : 'Price: High to Low'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text className="font-bold text-gray-800 mb-2">Seller Type</Text>
+          <View className="flex-row gap-2 mb-4">
+            {['all', 'farmer', 'agent'].map((s) => (
+              <TouchableOpacity
+                key={s}
+                onPress={() => applyFilters(sortBy, s, regionFilter)}
+                className={`px-3 py-1.5 rounded-lg border ${sellerType === s ? 'bg-primary border-primary' : 'bg-white border-gray-200'}`}
+              >
+                <Text className={`text-xs font-semibold ${sellerType === s ? 'text-white' : 'text-gray-600'}`}>
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text className="font-bold text-gray-800 mb-2">Region Filter</Text>
+          <View className="flex-row items-center">
+            <TextInput
+              className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800"
+              placeholder="e.g. Pune"
+              value={regionFilter}
+              onChangeText={setRegionFilter}
+              onSubmitEditing={() => applyFilters(sortBy, sellerType, regionFilter)}
+            />
+            {regionFilter.length > 0 && (
+              <TouchableOpacity onPress={() => applyFilters(sortBy, sellerType, '')} className="ml-2">
+                <Text className="text-red-500 font-semibold text-sm">Clear</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
 
       {loading && !refreshing ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={Colors.light.primary} />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#16a34a" />
         </View>
       ) : error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => { setLoading(true); fetchProducts(); }}>
-            <Text style={styles.retryText}>Retry</Text>
+        <View className="flex-1 items-center justify-center p-6">
+          <Text className="text-red-500 text-base text-center mb-4">{error}</Text>
+          <TouchableOpacity className="bg-primary px-6 py-3 rounded-xl" onPress={() => { setLoading(true); fetchProducts(); }}>
+            <Text className="text-white font-bold">Retry</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -172,19 +256,22 @@ export default function MarketplaceScreen() {
           data={products}
           keyExtractor={(item) => item.id}
           renderItem={renderProduct}
-          contentContainerStyle={styles.listContent}
+          contentContainerClassName="p-4"
           numColumns={2}
-          columnWrapperStyle={styles.columnWrapper}
+          columnWrapperClassName="justify-between"
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.light.primary]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#16a34a']} />
           }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Package color={Colors.light.icon} size={48} />
-              <Text style={styles.emptyText}>No products found.</Text>
+            <View className="items-center justify-center py-20 px-6 mt-10 bg-white rounded-3xl mx-4 border border-gray-100 border-dashed">
+              <View className="w-20 h-20 rounded-full bg-gray-50 items-center justify-center mb-4">
+                <Package color="#9ca3af" size={40} />
+              </View>
+              <Text className="text-gray-500 text-lg font-medium text-center">No products found</Text>
+              <Text className="text-gray-400 text-sm text-center mt-1 mb-4">Try adjusting your filters or search term</Text>
               {(search || selectedCategory !== 'All') && (
-                <TouchableOpacity onPress={() => { setSearch(''); onCategorySelect('All'); }}>
-                  <Text style={styles.clearFiltersText}>Clear filters</Text>
+                <TouchableOpacity onPress={() => { setSearch(''); onCategorySelect('All'); }} className="bg-green-50 px-5 py-2.5 rounded-full border border-green-200">
+                  <Text className="text-green-700 font-bold text-sm">Clear filters</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -194,71 +281,3 @@ export default function MarketplaceScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f3f4f6' },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: {
-    backgroundColor: Colors.light.background,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
-  },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.light.primaryDark },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.light.background,
-    margin: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-  },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, paddingVertical: 10, fontSize: 15, color: Colors.light.text },
-  categoryScroll: { paddingHorizontal: 12, paddingBottom: 8, gap: 8 },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: Colors.light.background,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-  },
-  chipSelected: { backgroundColor: Colors.light.primary, borderColor: Colors.light.primary },
-  chipText: { fontSize: 13, color: Colors.light.text, fontWeight: '500' },
-  chipTextSelected: { color: '#fff' },
-  listContent: { padding: 12, paddingTop: 4 },
-  columnWrapper: { justifyContent: 'space-between', marginBottom: 12 },
-  card: {
-    backgroundColor: Colors.light.background,
-    borderRadius: 12,
-    width: '48.5%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
-    overflow: 'hidden',
-  },
-  image: { width: '100%', height: 130, backgroundColor: '#e5e7eb' },
-  imagePlaceholder: { justifyContent: 'center', alignItems: 'center' },
-  cardContent: { padding: 10 },
-  productName: { fontSize: 14, fontWeight: 'bold', color: Colors.light.text, marginBottom: 3 },
-  price: { fontSize: 15, fontWeight: 'bold', color: Colors.light.primary, marginBottom: 6 },
-  unit: { fontSize: 11, color: Colors.light.icon, fontWeight: 'normal' },
-  infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
-  infoText: { fontSize: 11, color: Colors.light.icon, marginLeft: 3, flex: 1 },
-  sellerText: { fontSize: 11, color: Colors.light.icon, marginBottom: 6 },
-  stockBadge: { backgroundColor: '#f0fdf4', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start' },
-  stockText: { fontSize: 10, color: Colors.light.primaryDark, fontWeight: '600' },
-  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  errorText: { color: Colors.light.error, fontSize: 16, textAlign: 'center', marginBottom: 16 },
-  retryButton: { backgroundColor: Colors.light.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
-  retryText: { color: '#fff', fontWeight: 'bold' },
-  emptyContainer: { padding: 40, alignItems: 'center', gap: 12 },
-  emptyText: { color: Colors.light.icon, fontSize: 16 },
-  clearFiltersText: { color: Colors.light.primary, fontWeight: 'bold', fontSize: 14 },
-});
