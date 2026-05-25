@@ -1,112 +1,196 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  ActivityIndicator, RefreshControl,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
+import { Colors } from '@/constants/Colors';
+import { useApiClient } from '@/services/api';
+import { Bell, CheckCheck, Package, ShoppingBag, Truck } from 'lucide-react-native';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+const NOTIF_ICONS: Record<string, any> = {
+  ORDER_RECEIVED: ShoppingBag,
+  ORDER_SHIPPED: Truck,
+  ORDER_DELIVERED: Package,
+  default: Bell,
+};
 
-export default function TabTwoScreen() {
+export default function NotificationsScreen() {
+  const api = useApiClient();
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      setError('');
+      const res = await api.get('mobile/v1/notifications');
+      setNotifications(res.data || []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load notifications');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      fetchNotifications();
+    }, [])
+  );
+
+  const markAllRead = async () => {
+    try {
+      await api.post('mobile/v1/notifications', { markAll: true });
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    } catch {}
+  };
+
+  const markRead = async (id: string) => {
+    try {
+      await api.post('mobile/v1/notifications', { notificationId: id });
+      setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n));
+    } catch {}
+  };
+
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  const renderItem = ({ item }: { item: any }) => {
+    const IconComponent = NOTIF_ICONS[item.type] || NOTIF_ICONS.default;
+    const date = new Date(item.createdAt).toLocaleDateString('en-IN', {
+      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+    });
+
+    return (
+      <TouchableOpacity
+        style={[styles.notifCard, !item.isRead && styles.notifCardUnread]}
+        onPress={() => !item.isRead && markRead(item.id)}
+        activeOpacity={0.8}
+      >
+        <View style={[styles.iconBg, !item.isRead && styles.iconBgUnread]}>
+          <IconComponent color={item.isRead ? Colors.light.icon : Colors.light.primary} size={20} />
+        </View>
+        <View style={styles.notifContent}>
+          <Text style={[styles.notifTitle, !item.isRead && styles.notifTitleUnread]}>
+            {item.title || item.type?.replace(/_/g, ' ')}
+          </Text>
+          <Text style={styles.notifMessage} numberOfLines={2}>{item.message}</Text>
+          <Text style={styles.notifDate}>{date}</Text>
+        </View>
+        {!item.isRead && <View style={styles.unreadDot} />}
+      </TouchableOpacity>
+    );
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Notifications</Text>
+        {unreadCount > 0 && (
+          <TouchableOpacity style={styles.markAllBtn} onPress={markAllRead}>
+            <CheckCheck color={Colors.light.primary} size={18} />
+            <Text style={styles.markAllText}>Mark all read</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {loading && !refreshing ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={Colors.light.primary} />
+        </View>
+      ) : error ? (
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => { setLoading(true); fetchNotifications(); }}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={notifications}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => { setRefreshing(true); fetchNotifications(); }}
+              colors={[Colors.light.primary]}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Bell color={Colors.light.icon} size={56} />
+              <Text style={styles.emptyTitle}>All caught up!</Text>
+              <Text style={styles.emptySubtitle}>You have no notifications yet.</Text>
+            </View>
+          }
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
-        />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
-  },
-  titleContainer: {
+  container: { flex: 1, backgroundColor: '#f3f4f6' },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  header: {
+    backgroundColor: Colors.light.background,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.border,
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.light.text },
+  markAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  markAllText: { fontSize: 13, color: Colors.light.primary, fontWeight: '600' },
+  listContent: { padding: 12 },
+  notifCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: Colors.light.background,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+    gap: 12,
+  },
+  notifCardUnread: {
+    backgroundColor: '#f0fdf4',
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.light.primary,
+  },
+  iconBg: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  iconBgUnread: { backgroundColor: '#dcfce7' },
+  notifContent: { flex: 1 },
+  notifTitle: { fontSize: 14, fontWeight: '600', color: Colors.light.icon, marginBottom: 2 },
+  notifTitleUnread: { color: Colors.light.text, fontWeight: 'bold' },
+  notifMessage: { fontSize: 14, color: Colors.light.text, lineHeight: 20 },
+  notifDate: { fontSize: 12, color: Colors.light.icon, marginTop: 4 },
+  unreadDot: {
+    width: 8, height: 8, borderRadius: 4,
+    backgroundColor: Colors.light.primary,
+    marginTop: 4,
+  },
+  errorText: { color: Colors.light.error, fontSize: 15, textAlign: 'center', marginBottom: 16 },
+  retryButton: { backgroundColor: Colors.light.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
+  retryText: { color: '#fff', fontWeight: 'bold' },
+  emptyContainer: { paddingTop: 80, alignItems: 'center', gap: 12 },
+  emptyTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.light.text },
+  emptySubtitle: { fontSize: 14, color: Colors.light.icon },
 });
