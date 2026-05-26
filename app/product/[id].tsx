@@ -30,6 +30,10 @@ export default function ProductDetailScreen() {
   const [addingToCart, setAddingToCart] = useState(false);
   const [isSpecialDeliveryModalVisible, setSpecialDeliveryModalVisible] = useState(false);
   const [specialRequests, setSpecialRequests] = useState<any[]>([]);
+  const [dynamicFee, setDynamicFee] = useState<number | null>(null);
+  const [isOutOfRange, setIsOutOfRange] = useState(false);
+  const [isLongDistance, setIsLongDistance] = useState(false);
+  const [isFeeLoading, setIsFeeLoading] = useState(false);
 
   useEffect(() => {
     const fetchProductAndRequests = async () => {
@@ -48,14 +52,26 @@ export default function ProductDetailScreen() {
         if (reqRes.data?.success) {
           setSpecialRequests(reqRes.data.data || []);
         }
+
+        if (p && profile?.lat && profile?.lng) {
+          setIsFeeLoading(true);
+          const feeRes = await api.get(`mobile/v1/orders/fee?lat=${profile.lat}&lng=${profile.lng}&productId=${p.id}`);
+          if (feeRes.data?.success) {
+            setDynamicFee(feeRes.data.fee);
+            setIsOutOfRange(feeRes.data.isOutOfRange);
+            setIsLongDistance(feeRes.data.isLongDistance);
+          }
+          setIsFeeLoading(false);
+        }
       } catch (err: any) {
         setError(err.message || 'Failed to load product');
+        setIsFeeLoading(false);
       } finally {
         setLoading(false);
       }
     };
     if (productId) fetchProductAndRequests();
-  }, [productId, isSignedIn]);
+  }, [productId, isSignedIn, profile?.lat, profile?.lng]);
 
   const reloadRequests = async () => {
     try {
@@ -80,6 +96,13 @@ export default function ProductDetailScreen() {
     if (!profile.lat || !profile.lng) {
       router.push('/edit-profile');
       return;
+    }
+
+    if (isOutOfRange && isBypassed) {
+      if (quantity > dynamicMaxQty) {
+        Alert.alert('Out of Range Limit Exceeded', `You can only add ${dynamicMaxQty} more unit(s) based on your approved request.`);
+        return;
+      }
     }
 
     setAddingToCart(true);
@@ -136,26 +159,10 @@ export default function ProductDetailScreen() {
   const minQty = Math.max(1, Number(product?.minOrderQuantity) || 1);
   const maxQty = Math.min(Number(product?.availableStock) || 0, 100);
   
-  // Calculate distance
-  const sellerLat = seller?.lat;
-  const sellerLng = seller?.lng;
-  const userLat = profile?.lat;
-  const userLng = profile?.lng;
-  
-  let distance = 0;
-  let isOutOfRange = false;
-  const maxRange = product.maxDeliveryRange || 50;
-  
-  if (sellerLat && sellerLng && userLat && userLng) {
-    distance = calculateDistance(userLat, userLng, sellerLat, sellerLng);
-    if (distance > maxRange) {
-      isOutOfRange = true;
-    }
-  }
-
   const specialRequest = specialRequests.find((r: any) => r.productId === product.id);
   const hasRequested = !!specialRequest;
   const isBypassed = specialRequest?.status === 'APPROVED';
+  const requestRecordExists = specialRequest?.status === 'PENDING';
   
   const canAddToCart = !isOutOfRange || isBypassed;
   
@@ -288,7 +295,7 @@ export default function ProductDetailScreen() {
               <AlertCircle color="#dc2626" size={20} className="mr-2 mt-0.5" />
               <View className="flex-1">
                 <Text className="text-sm font-bold text-red-800 mb-1">Out of Delivery Range</Text>
-                <Text className="text-xs text-red-700 leading-tight">This seller is located {distance.toFixed(1)}km away (Max range: {maxRange}km). You must request special logistics delivery to buy this product.</Text>
+                <Text className="text-xs text-red-700 leading-tight">This seller is located outside our standard delivery radius. You must request special logistics delivery to buy this product.</Text>
               </View>
             </View>
           )}
@@ -303,7 +310,7 @@ export default function ProductDetailScreen() {
           <Text className="text-2xl font-black text-gray-900">₹{(quantity * product.pricePerUnit).toFixed(2)}</Text>
         </View>
 
-        {isOutOfRange && !isBypassed && !hasRequested && isSignedIn && role !== 'none' && userLat && userLng ? (
+        {isOutOfRange && !isBypassed && !requestRecordExists && isSignedIn && role !== 'none' && profile?.lat && profile?.lng ? (
           <TouchableOpacity
             className="flex-2 flex-row items-center justify-center px-6 py-4 rounded-2xl bg-amber-500"
             onPress={() => setSpecialDeliveryModalVisible(true)}
@@ -314,22 +321,20 @@ export default function ProductDetailScreen() {
         ) : (
           <TouchableOpacity
             className={`flex-2 flex-row items-center justify-center px-6 py-4 rounded-2xl ${
-              addingToCart || (isOutOfRange && isBypassed && dynamicMaxQty <= 0) || maxQty === 0 ? "opacity-70" : ""
+              addingToCart || (isOutOfRange && isBypassed && dynamicMaxQty <= 0) || maxQty === 0 || isFeeLoading ? "opacity-70" : ""
             } ${
               !isSignedIn || !role || role === 'none' || !profile 
-                ? "bg-gradient-to-r from-blue-500 to-indigo-600" 
+                ? "bg-blue-600" 
                 : (!profile?.lat || !profile?.lng) 
                   ? "bg-amber-500" 
-                  : (isOutOfRange && hasRequested && !isBypassed) 
+                  : (isOutOfRange && isBypassed && dynamicMaxQty <= 0) || maxQty === 0
                     ? "bg-gray-400"
-                    : (isOutOfRange && isBypassed && dynamicMaxQty <= 0) || maxQty === 0
-                      ? "bg-gray-400"
-                    : "bg-primary"
+                  : "bg-primary"
             }`}
             onPress={handleAddToCart}
-            disabled={addingToCart || (isOutOfRange && hasRequested && !isBypassed) || (isOutOfRange && isBypassed && dynamicMaxQty <= 0) || maxQty === 0}
+            disabled={addingToCart || isFeeLoading || (isOutOfRange && isBypassed && dynamicMaxQty <= 0) || maxQty === 0}
           >
-            {addingToCart ? (
+            {addingToCart || isFeeLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <View className="flex-row items-center">
@@ -339,13 +344,10 @@ export default function ProductDetailScreen() {
                   <Text className="text-white text-base font-bold">Complete Profile</Text>
                 ) : (!profile.lat || !profile.lng) ? (
                   <Text className="text-white text-base font-bold">Location Required</Text>
-                ) : (isOutOfRange && hasRequested && !isBypassed) ? (
-                  <View className="flex-row items-center">
-                    <Clock color="#fff" size={16} className="mr-2" />
-                    <Text className="text-white text-base font-bold">Pending Approval</Text>
-                  </View>
                 ) : maxQty === 0 ? (
                   <Text className="text-white text-lg font-bold">Out of Stock</Text>
+                ) : (isOutOfRange && requestRecordExists && !isBypassed) ? (
+                  <Text className="text-white text-lg font-bold">Awaiting Request</Text>
                 ) : (
                   <Text className="text-white text-lg font-bold">Add to Cart</Text>
                 )}

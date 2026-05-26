@@ -98,21 +98,67 @@ export default function CheckoutScreen() {
             lng: profile.lng,
           },
           selectedItemIds: items.map((i: any) => i.id),
-          forceFresh: true,
+          forceFresh: false,
         },
       };
 
       const response = await api.post('mobile/v1/orders', payload);
 
       if (response.success && response.data) {
+        if (response.data.isCollision) {
+          Alert.alert(
+            'Pending Order Found',
+            'You already have a pending payment for some of these items.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Start Fresh', 
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    setLoading(true);
+                    const freshPayload = { ...payload, params: { ...payload.params, forceFresh: true } };
+                    const freshResponse = await api.post('mobile/v1/orders', freshPayload);
+                    handleCheckoutSuccess(freshResponse);
+                  } catch (e: any) {
+                    Alert.alert('Error', e.message || 'Failed to start fresh order.');
+                    setLoading(false);
+                  }
+                }
+              },
+              { 
+                text: 'Resume Order',
+                onPress: () => {
+                   router.replace('/(tabs)/cart');
+                }
+              }
+            ]
+          );
+          setLoading(false);
+          return;
+        }
+
+        handleCheckoutSuccess(response);
+      } else {
+        Alert.alert('Error', response.error || 'Failed to initiate checkout. Please try again.');
+        setLoading(false);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'An unexpected error occurred. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const handleCheckoutSuccess = async (response: any) => {
+    try {
         if (response.data.isCod || paymentMethod === 'COD') {
           Alert.alert('Order Placed! ✓', 'Your order has been placed successfully with Cash on Delivery.', [
             { text: 'View Orders', onPress: () => { fetchCart(api); router.replace('/orders'); } },
           ]);
         } else {
           // Online payment via hosted web page
-          const razorpayOrderId = response.data.razorpayOrderId;
-          const orderId = response.data.orderId;
+          const razorpayOrderId = response.data.razorpayOrderId || response.data.data?.razorpayOrderId;
+          const orderId = response.data.orderId || response.data.data?.orderId || response.data.data?.id;
           const deepLink = Linking.createURL('payment-callback');
           const checkoutUrl = `${WEB_APP_URL}/mobile-checkout?orderId=${orderId}&razorpayOrderId=${razorpayOrderId}&redirectUrl=${encodeURIComponent(deepLink)}`;
 
@@ -131,13 +177,8 @@ export default function CheckoutScreen() {
             Alert.alert('Checkout Closed', 'You closed the payment page. Your order was not placed.');
           }
         }
-      } else {
-        Alert.alert('Error', response.error || 'Failed to initiate checkout. Please try again.');
-      }
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'An unexpected error occurred. Please try again.');
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
 
