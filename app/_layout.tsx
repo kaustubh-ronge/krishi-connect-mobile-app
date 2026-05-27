@@ -131,7 +131,7 @@ export default function RootLayout() {
             <Stack.Screen name="checkout" options={{ headerShown: false }} />
             <Stack.Screen name="orders" options={{ headerShown: false }} />
             <Stack.Screen name="order-detail" options={{ headerShown: false }} />
-            <Stack.Screen name="product" options={{ headerShown: false }} />
+            <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
             <Stack.Screen name="create-listing" options={{ headerShown: false }} />
             <Stack.Screen name="edit-listing" options={{ headerShown: false }} />
@@ -140,7 +140,7 @@ export default function RootLayout() {
             <Stack.Screen name="sales" options={{ headerShown: false }} />
             <Stack.Screen name="+not-found" />
           </Stack>
-          <StatusBar style="light" backgroundColor="#0f172a" />
+          <StatusBar style="light" backgroundColor="transparent" translucent={true} />
         </ThemeProvider>
       </ClerkLoaded>
     </ClerkProvider>
