@@ -21,7 +21,7 @@ export function formatLocation(entity: {
   state?: string | null;
   pincode?: string | null;
 } | null | undefined): string {
-  if (!entity) return 'Location not available';
+  if (!entity) return '';
 
   if (entity.address?.trim()) {
     const parts = [
@@ -38,7 +38,7 @@ export function formatLocation(entity: {
     .filter(Boolean)
     .join(', ');
 
-  return regionParts || 'Location not available';
+  return regionParts || '';
 }
 
 /** Haversine distance in KM */

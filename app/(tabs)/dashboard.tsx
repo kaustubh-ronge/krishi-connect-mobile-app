@@ -1,9 +1,10 @@
 import React, { useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView,
-  ActivityIndicator, RefreshControl, Alert, Platform,
+  ActivityIndicator, RefreshControl, Alert, Platform, StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useApiClient } from '@/services/api';
@@ -12,7 +13,7 @@ import { useCartStore } from '@/store/cartStore';
 import {
   Package, Truck, Activity, User as UserIcon,
   LogOut, ChevronRight, ShoppingBag, PlusCircle, ClipboardList,
-  TrendingUp, IndianRupee
+  IndianRupee, TrendingUp,
 } from 'lucide-react-native';
 import { MotiView, MotiScrollView } from 'moti';
 
@@ -24,11 +25,11 @@ const ROLE_LABELS: Record<string, string> = {
   none: 'New User',
 };
 
-const SELLING_STATUS_COLORS: Record<string, string> = {
-  APPROVED: 'text-green-600 bg-green-100',
-  PENDING: 'text-yellow-600 bg-yellow-100',
-  REJECTED: 'text-red-600 bg-red-100',
-  NONE: 'text-gray-600 bg-gray-100',
+const SELLING_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+  APPROVED: { bg: '#dcfce7', text: '#15803d' },
+  PENDING: { bg: '#fef9c3', text: '#a16207' },
+  REJECTED: { bg: '#fee2e2', text: '#b91c1c' },
+  NONE: { bg: '#f1f5f9', text: '#64748b' },
 };
 
 export default function DashboardScreen() {
@@ -38,14 +39,14 @@ export default function DashboardScreen() {
   const api = useApiClient();
   const { profile, role, loading, fetchProfile } = useUserStore();
   const { clearLocalCart } = useCartStore();
-  
+
   const [salesSummary, setSalesSummary] = React.useState({ totalOrders: 0, totalRevenue: 0 });
 
   useFocusEffect(
     useCallback(() => {
       fetchProfile(api);
       if (role === 'farmer' || role === 'agent') {
-        api.get('mobile/v1/seller/sales').then(res => {
+        api.get('mobile/v1/seller/sales').then((res: any) => {
           const data = res.data?.data || res.data || [];
           if (Array.isArray(data)) {
             const revenue = data.reduce((sum: number, item: any) => sum + Number(item.totalPriceAtTime || item.quantity * item.priceAtTime || 0), 0);
@@ -60,123 +61,79 @@ export default function DashboardScreen() {
     const doSignOut = async () => {
       clearLocalCart();
       useUserStore.getState().clearProfile();
-      try {
-        await signOut();
-      } catch (e) {
-        console.error('SignOut error', e);
-      }
+      try { await signOut(); } catch (e) { console.error('SignOut error', e); }
     };
-
     if (Platform.OS === 'web') {
-      if (window.confirm('Are you sure you want to sign out?')) {
-        await doSignOut();
-      }
+      if (window.confirm('Are you sure you want to sign out?')) await doSignOut();
       return;
     }
-
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: doSignOut,
-        },
-      ]
-    );
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign Out', style: 'destructive', onPress: doSignOut },
+    ]);
   };
 
   const sellingStatus = profile?.sellingStatus || profile?.approvalStatus || 'NONE';
   const displayName = profile?.name || user?.fullName || 'User';
   const displayRole = ROLE_LABELS[role] || role || 'User';
+  const statusStyle = SELLING_STATUS_COLORS[sellingStatus] || SELLING_STATUS_COLORS.NONE;
 
   const getQuickActions = () => {
-    const common = [
-      {
-        id: 'orders',
-        title: 'My Orders',
-        subtitle: 'View all purchases',
-        icon: ShoppingBag,
-        color: '#3b82f6',
-        bgColor: 'bg-blue-50',
-        iconBg: 'bg-blue-100',
-        onPress: () => router.push('/orders'),
-      },
-    ];
+    const common = [{
+      id: 'orders', title: 'My Orders', subtitle: 'View all purchases',
+      icon: ShoppingBag, gradient: ['#2563eb', '#3b82f6'] as const,
+      iconBg: '#eff6ff', onPress: () => router.push('/orders'),
+    }];
 
     if (role === 'farmer' || role === 'agent') {
       return [
         ...common,
         {
-          id: 'listings',
-          title: 'My Listings',
-          subtitle: 'Manage your products',
-          icon: Package,
-          color: '#16a34a',
-          bgColor: 'bg-green-50',
-          iconBg: 'bg-green-100',
+          id: 'listings', title: 'My Listings', subtitle: 'Manage products',
+          icon: Package, gradient: ['#15803d', '#22c55e'] as const,
+          iconBg: '#f0fdf4',
           onPress: () => {
             if (sellingStatus !== 'APPROVED') {
-              Alert.alert('Account Pending', 'Your seller profile is pending approval by an admin. You cannot manage listings yet.');
+              Alert.alert('Account Pending', 'Your seller profile is pending approval.');
             } else {
               router.push('/my-listings');
             }
           },
         },
         {
-          id: 'create',
-          title: 'Add Listing',
-          subtitle: 'Sell new produce',
-          icon: PlusCircle,
-          color: '#0ea5e9',
-          bgColor: 'bg-sky-50',
-          iconBg: 'bg-sky-100',
+          id: 'create', title: 'Add Listing', subtitle: 'Sell new produce',
+          icon: PlusCircle, gradient: ['#0284c7', '#0ea5e9'] as const,
+          iconBg: '#f0f9ff',
           onPress: () => {
             if (sellingStatus !== 'APPROVED') {
-              Alert.alert('Account Pending', 'Your seller profile is pending approval by an admin.');
+              Alert.alert('Account Pending', 'Your seller profile is pending approval.');
             } else {
               router.push('/create-listing');
             }
           },
         },
         {
-          id: 'manage-orders',
-          title: 'Manage Orders',
-          subtitle: 'Fulfill customer orders',
-          icon: ClipboardList,
-          color: '#f59e0b',
-          bgColor: 'bg-amber-50',
-          iconBg: 'bg-amber-100',
+          id: 'manage-orders', title: 'Manage Orders', subtitle: 'Fulfill orders',
+          icon: ClipboardList, gradient: ['#b45309', '#f59e0b'] as const,
+          iconBg: '#fffbeb',
           onPress: () => router.push('/manage-orders'),
         },
         {
-          id: 'earnings',
-          title: 'Earnings',
-          subtitle: 'Sales & payouts',
-          icon: Activity,
-          color: '#8b5cf6',
-          bgColor: 'bg-purple-50',
-          iconBg: 'bg-purple-100',
+          id: 'earnings', title: 'Earnings', subtitle: 'Sales & payouts',
+          icon: TrendingUp, gradient: ['#7c3aed', '#8b5cf6'] as const,
+          iconBg: '#f5f3ff',
           onPress: () => router.push('/sales'),
         },
       ];
     }
 
     if (role === 'delivery') {
-      return [
-        {
-          id: 'deliveries',
-          title: 'My Deliveries',
-          subtitle: 'Jobs & history',
-          icon: Truck,
-          color: '#f59e0b',
-          bgColor: 'bg-amber-50',
-          iconBg: 'bg-amber-100',
-          onPress: () => router.push('/deliveries'),
-        },
-      ];
+      return [{
+        id: 'deliveries', title: 'My Deliveries', subtitle: 'Jobs & history',
+        icon: Truck, gradient: ['#b45309', '#f59e0b'] as const,
+        iconBg: '#fffbeb',
+        onPress: () => router.push('/deliveries'),
+      }];
     }
 
     return common;
@@ -184,137 +141,247 @@ export default function DashboardScreen() {
 
   if (loading && !profile) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-        <ActivityIndicator size="large" color="#16a34a" />
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#16a34a" />
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Gradient header strip */}
+      <LinearGradient
+        colors={['#15803d', '#16a34a']}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+        style={styles.headerStrip}
+      >
+        <Text style={styles.headerTitle}>Dashboard</Text>
+        <Text style={styles.headerSubtitle}>Welcome back, {displayName.split(' ')[0]}!</Text>
+      </LinearGradient>
+
       <MotiScrollView
-        contentContainerClassName="px-4 pb-10 pt-4"
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={loading}
             onRefresh={() => fetchProfile(api)}
-            colors={['#16a34a']}
+            colors={['#16a34a']} tintColor="#16a34a"
           />
         }
       >
+        {/* Profile Card */}
         <MotiView
-          from={{ opacity: 0, translateY: -10 }}
+          from={{ opacity: 0, translateY: -16 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 500 }}
-          className="flex-row items-center bg-white rounded-3xl p-5 mb-6 shadow-sm border border-gray-100"
+          transition={{ type: 'spring', damping: 18 }}
+          style={styles.profileCard}
         >
-          <View className="w-16 h-16 rounded-full bg-primary items-center justify-center shadow-sm">
-            <Text className="text-white text-3xl font-bold">{displayName[0]?.toUpperCase() || 'U'}</Text>
-          </View>
-          <View className="ml-4 flex-1">
-            <Text className="text-xl font-bold text-gray-900" numberOfLines={1}>{displayName}</Text>
-            <Text className="text-sm text-gray-500 mb-2" numberOfLines={1}>
-              {user?.primaryEmailAddress?.emailAddress || ''}
-            </Text>
-            <View className="flex-row gap-2 flex-wrap">
-              <View className="bg-green-100 px-3 py-1 rounded-full">
-                <Text className="text-xs font-bold text-green-700">{displayRole}</Text>
-              </View>
-              {(role === 'farmer' || role === 'agent') && sellingStatus !== 'NONE' && (
-                <View className={`px-3 py-1 rounded-full ${SELLING_STATUS_COLORS[sellingStatus].split(' ')[1]}`}>
-                  <Text className={`text-xs font-bold ${SELLING_STATUS_COLORS[sellingStatus].split(' ')[0]}`}>
-                    {sellingStatus}
-                  </Text>
-                </View>
-              )}
+          <LinearGradient
+            colors={['#f0fdf4', '#ffffff']}
+            style={styles.profileCardGradient}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          >
+            <View style={styles.avatarContainer}>
+              <LinearGradient colors={['#15803d', '#22c55e']} style={styles.avatar} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                <Text style={styles.avatarText}>{displayName[0]?.toUpperCase() || 'U'}</Text>
+              </LinearGradient>
             </View>
-          </View>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={styles.profileName} numberOfLines={1}>{displayName}</Text>
+              <Text style={styles.profileEmail} numberOfLines={1}>
+                {user?.primaryEmailAddress?.emailAddress || ''}
+              </Text>
+              <View style={styles.badgeRow}>
+                <View style={styles.roleBadge}>
+                  <Text style={styles.roleBadgeText}>{displayRole}</Text>
+                </View>
+                {(role === 'farmer' || role === 'agent') && sellingStatus !== 'NONE' && (
+                  <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+                    <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>{sellingStatus}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </LinearGradient>
         </MotiView>
 
+        {/* Performance Card */}
         {(role === 'farmer' || role === 'agent') && sellingStatus === 'APPROVED' && (
           <MotiView
             from={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ type: 'spring', delay: 100 }}
-            className="mb-6 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-3xl p-5 shadow-sm"
+            style={styles.performanceCardWrapper}
           >
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-white font-bold text-lg">Performance Overview</Text>
-              <Activity color="#fff" size={20} />
-            </View>
-            <View className="flex-row items-center justify-between">
-              <View>
-                <Text className="text-emerald-100 text-xs font-semibold uppercase tracking-wider mb-1">Total Revenue</Text>
-                <Text className="text-white text-2xl font-black">₹{salesSummary.totalRevenue.toLocaleString()}</Text>
+            <LinearGradient
+              colors={['#065f46', '#059669', '#10b981']}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={styles.performanceCard}
+            >
+              <View style={styles.performanceHeader}>
+                <Text style={styles.performanceTitle}>Performance Overview</Text>
+                <Activity color="rgba(255,255,255,0.8)" size={18} />
               </View>
-              <View className="w-px h-10 bg-emerald-400/50 mx-4" />
-              <View>
-                <Text className="text-emerald-100 text-xs font-semibold uppercase tracking-wider mb-1">Items Sold</Text>
-                <Text className="text-white text-2xl font-black">{salesSummary.totalOrders}</Text>
+              <View style={styles.performanceStats}>
+                <View style={styles.statBlock}>
+                  <Text style={styles.statLabel}>TOTAL REVENUE</Text>
+                  <Text style={styles.statValue}>₹{salesSummary.totalRevenue.toLocaleString()}</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statBlock}>
+                  <Text style={styles.statLabel}>ITEMS SOLD</Text>
+                  <Text style={styles.statValue}>{salesSummary.totalOrders}</Text>
+                </View>
               </View>
-            </View>
+            </LinearGradient>
           </MotiView>
         )}
 
-        <Text className="text-lg font-bold text-gray-900 mb-3 px-1">Quick Actions</Text>
-        <View className="flex-row flex-wrap gap-3 mb-8">
+        {/* Quick Actions */}
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.actionsGrid}>
           {getQuickActions().map((action, index) => {
             const Icon = action.icon;
             return (
               <MotiView
                 key={action.id}
-                from={{ opacity: 0, scale: 0.9 }}
+                from={{ opacity: 0, scale: 0.88 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: 'spring', delay: index * 100 }}
-                style={{ width: '48%' }}
+                transition={{ type: 'spring', delay: index * 80 }}
+                style={styles.actionCardWrapper}
               >
                 <TouchableOpacity
-                  className={`${action.bgColor} p-4 rounded-3xl shadow-sm border border-white`}
+                  style={[styles.actionCard, { backgroundColor: action.iconBg }]}
                   onPress={action.onPress}
-                  activeOpacity={0.8}
+                  activeOpacity={0.82}
                 >
-                  <View className={`w-12 h-12 rounded-full ${action.iconBg} items-center justify-center mb-3`}>
-                    <Icon color={action.color} size={24} />
-                  </View>
-                  <Text className="text-base font-bold text-gray-900 mb-1">{action.title}</Text>
-                  <Text className="text-xs text-gray-500">{action.subtitle}</Text>
+                  <LinearGradient
+                    colors={action.gradient}
+                    style={styles.actionIconGradient}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  >
+                    <Icon color="#fff" size={22} />
+                  </LinearGradient>
+                  <Text style={styles.actionTitle}>{action.title}</Text>
+                  <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
                 </TouchableOpacity>
               </MotiView>
             );
           })}
         </View>
 
-        <Text className="text-lg font-bold text-gray-900 mb-3 px-1">Account</Text>
+        {/* Account Section */}
+        <Text style={styles.sectionTitle}>Account</Text>
         <MotiView
           from={{ opacity: 0, translateY: 20 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 600, delay: 200 }}
-          className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100"
+          transition={{ type: 'timing', duration: 500, delay: 300 }}
+          style={styles.menuCard}
         >
-          <TouchableOpacity className="flex-row items-center p-5 border-b border-gray-100" onPress={() => router.push('/edit-profile')}>
-            <View className="w-10 h-10 rounded-full bg-gray-50 items-center justify-center mr-4">
-              <UserIcon color="#6b7280" size={20} />
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/edit-profile')}>
+            <View style={[styles.menuIconBg, { backgroundColor: '#f1f5f9' }]}>
+              <UserIcon color="#475569" size={19} />
             </View>
-            <Text className="text-base font-semibold text-gray-800 flex-1">Edit Profile</Text>
-            <ChevronRight color="#9ca3af" size={20} />
+            <Text style={styles.menuLabel}>Edit Profile</Text>
+            <ChevronRight color="#cbd5e1" size={19} />
           </TouchableOpacity>
 
-          <TouchableOpacity className="flex-row items-center p-5 border-b border-gray-100" onPress={() => router.push('/orders')}>
-            <View className="w-10 h-10 rounded-full bg-gray-50 items-center justify-center mr-4">
-              <ShoppingBag color="#6b7280" size={20} />
+          <View style={styles.menuDivider} />
+
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/orders')}>
+            <View style={[styles.menuIconBg, { backgroundColor: '#eff6ff' }]}>
+              <ShoppingBag color="#3b82f6" size={19} />
             </View>
-            <Text className="text-base font-semibold text-gray-800 flex-1">Order History</Text>
-            <ChevronRight color="#9ca3af" size={20} />
+            <Text style={styles.menuLabel}>Order History</Text>
+            <ChevronRight color="#cbd5e1" size={19} />
           </TouchableOpacity>
 
-          <TouchableOpacity className="flex-row items-center p-5" onPress={handleSignOut}>
-            <View className="w-10 h-10 rounded-full bg-red-50 items-center justify-center mr-4">
-              <LogOut color="#ef4444" size={20} />
+          <View style={styles.menuDivider} />
+
+          <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
+            <View style={[styles.menuIconBg, { backgroundColor: '#fef2f2' }]}>
+              <LogOut color="#ef4444" size={19} />
             </View>
-            <Text className="text-base font-semibold text-red-500 flex-1">Sign Out</Text>
+            <Text style={[styles.menuLabel, { color: '#ef4444' }]}>Sign Out</Text>
           </TouchableOpacity>
         </MotiView>
       </MotiScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+  headerStrip: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.4 },
+  headerSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: '500', marginTop: 2 },
+
+  scrollContent: { padding: 16, paddingBottom: 100 },
+
+  // Profile Card
+  profileCard: {
+    borderRadius: 22, marginBottom: 14, overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
+  },
+  profileCardGradient: { flexDirection: 'row', alignItems: 'center', padding: 18 },
+  avatarContainer: {},
+  avatar: {
+    width: 60, height: 60, borderRadius: 30,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#16a34a', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+  },
+  avatarText: { color: '#fff', fontSize: 26, fontWeight: '800' },
+  profileName: { fontSize: 18, fontWeight: '800', color: '#0f172a', marginBottom: 3 },
+  profileEmail: { fontSize: 12, color: '#94a3b8', marginBottom: 8, fontWeight: '500' },
+  badgeRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  roleBadge: { backgroundColor: '#dcfce7', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
+  roleBadgeText: { fontSize: 11, fontWeight: '700', color: '#15803d' },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
+  statusBadgeText: { fontSize: 11, fontWeight: '700' },
+
+  // Performance card
+  performanceCardWrapper: { marginBottom: 20 },
+  performanceCard: { borderRadius: 22, padding: 20 },
+  performanceHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  performanceTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
+  performanceStats: { flexDirection: 'row', alignItems: 'center' },
+  statBlock: { flex: 1 },
+  statLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 0.8, marginBottom: 4 },
+  statValue: { fontSize: 26, fontWeight: '900', color: '#fff' },
+  statDivider: { width: 1, height: 44, backgroundColor: 'rgba(255,255,255,0.2)', marginHorizontal: 20 },
+
+  sectionTitle: { fontSize: 16, fontWeight: '800', color: '#0f172a', marginBottom: 12, letterSpacing: -0.2 },
+
+  // Actions grid
+  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
+  actionCardWrapper: { width: '47.5%' },
+  actionCard: {
+    borderRadius: 20, padding: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
+  },
+  actionIconGradient: {
+    width: 48, height: 48, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+  },
+  actionTitle: { fontSize: 14, fontWeight: '800', color: '#0f172a', marginBottom: 3 },
+  actionSubtitle: { fontSize: 11, color: '#94a3b8', fontWeight: '500' },
+
+  // Menu
+  menuCard: {
+    backgroundColor: '#fff', borderRadius: 22,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+    overflow: 'hidden', marginBottom: 12,
+  },
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 16 },
+  menuIconBg: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  menuLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: '#1e293b' },
+  menuDivider: { height: 1, backgroundColor: '#f1f5f9', marginLeft: 70 },
+});

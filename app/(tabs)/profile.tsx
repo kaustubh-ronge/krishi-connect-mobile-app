@@ -1,9 +1,10 @@
 import React, { useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView,
-  ActivityIndicator, Alert, Platform,
+  ActivityIndicator, Alert, Platform, StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useApiClient } from '@/services/api';
@@ -14,7 +15,6 @@ import {
   ShoppingBag, Edit3, LogOut, ChevronRight,
 } from 'lucide-react-native';
 import { MotiView, MotiScrollView } from 'moti';
-import { LinearGradient } from 'expo-linear-gradient';
 
 const ROLE_LABELS: Record<string, string> = {
   farmer: 'Farmer',
@@ -24,10 +24,10 @@ const ROLE_LABELS: Record<string, string> = {
   none: 'New User',
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  APPROVED: 'text-green-700 bg-green-100 border-green-200',
-  PENDING: 'text-yellow-700 bg-yellow-100 border-yellow-200',
-  REJECTED: 'text-red-700 bg-red-100 border-red-200',
+const STATUS_CONFIG: Record<string, { bg: string; text: string; label: string }> = {
+  APPROVED: { bg: '#dcfce7', text: '#15803d', label: '✅ Approved Seller' },
+  PENDING: { bg: '#fef9c3', text: '#a16207', label: '⏳ Approval Pending' },
+  REJECTED: { bg: '#fee2e2', text: '#b91c1c', label: '❌ Application Rejected' },
 };
 
 export default function ProfileScreen() {
@@ -48,32 +48,16 @@ export default function ProfileScreen() {
     const doSignOut = async () => {
       clearLocalCart();
       useUserStore.getState().clearProfile();
-      try {
-        await signOut();
-      } catch (e) {
-        console.error('SignOut error', e);
-      }
+      try { await signOut(); } catch (e) { console.error('SignOut error', e); }
     };
-
     if (Platform.OS === 'web') {
-      if (window.confirm('Are you sure you want to sign out?')) {
-        await doSignOut();
-      }
+      if (window.confirm('Are you sure you want to sign out?')) await doSignOut();
       return;
     }
-
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: doSignOut,
-        },
-      ]
-    );
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign Out', style: 'destructive', onPress: doSignOut },
+    ]);
   };
 
   const displayName = profile?.name || user?.fullName || 'User';
@@ -81,125 +65,221 @@ export default function ProfileScreen() {
   const phone = profile?.phone || '';
   const address = profile?.address || '';
   const sellingStatus = profile?.sellingStatus || profile?.approvalStatus;
+  const statusConfig = sellingStatus ? STATUS_CONFIG[sellingStatus] : null;
 
   if (loading && !profile) {
     return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center">
-        <ActivityIndicator size="large" color="#16a34a" />
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#16a34a" />
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <View className="bg-white px-4 py-4 border-b border-gray-100 flex-row items-center justify-between">
-        <Text className="text-xl font-bold text-gray-900">My Profile</Text>
-        <TouchableOpacity onPress={() => router.push('/edit-profile')} className="p-2">
-          <Edit3 size={20} color="#16a34a" />
-        </TouchableOpacity>
-      </View>
-
-      <MotiScrollView contentContainerClassName="p-4 pb-10">
-        {/* Avatar + Name */}
-        <MotiView
-          from={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'timing', duration: 500 }}
-          className="items-center mb-8 mt-4"
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <MotiScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hero Banner */}
+        <LinearGradient
+          colors={['#0f172a', '#134e2a', '#15803d']}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          style={styles.heroBanner}
         >
-          <View className="w-24 h-24 rounded-full bg-primary items-center justify-center shadow-md mb-4 border-4 border-green-50">
-            <Text className="text-white text-4xl font-bold">{displayName[0]?.toUpperCase() || 'U'}</Text>
-          </View>
-          <Text className="text-2xl font-bold text-gray-900 mb-2">{displayName}</Text>
-          <View className="bg-green-100 px-4 py-1.5 rounded-full mb-3">
-            <Text className="text-sm font-bold text-green-800">{ROLE_LABELS[role] || role || 'User'}</Text>
-          </View>
-          {sellingStatus && STATUS_COLORS[sellingStatus] && (
-            <View className={`px-4 py-1.5 rounded-full border ${STATUS_COLORS[sellingStatus]}`}>
-              <Text className="text-sm font-semibold opacity-90">
-                {sellingStatus === 'PENDING' ? '⏳ Approval Pending' :
-                 sellingStatus === 'APPROVED' ? '✅ Approved Seller' :
-                 '❌ Application Rejected'}
-              </Text>
-            </View>
-          )}
-        </MotiView>
+          <View style={styles.heroDecorCircle} />
+          <TouchableOpacity
+            style={styles.editIconBtn}
+            onPress={() => router.push('/edit-profile')}
+          >
+            <Edit3 color="#fff" size={17} />
+          </TouchableOpacity>
 
-        {/* Info Cards */}
+          {/* Avatar */}
+          <MotiView
+            from={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', damping: 16 }}
+            style={styles.avatarWrapper}
+          >
+            <LinearGradient
+              colors={['#22c55e', '#16a34a']}
+              style={styles.avatar}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            >
+              <Text style={styles.avatarText}>{displayName[0]?.toUpperCase() || 'U'}</Text>
+            </LinearGradient>
+          </MotiView>
+
+          <Text style={styles.heroName}>{displayName}</Text>
+          <View style={styles.heroBadgeRow}>
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleBadgeText}>{ROLE_LABELS[role] || role || 'User'}</Text>
+            </View>
+            {statusConfig && (
+              <View style={[styles.statusBadge, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+                <Text style={styles.statusBadgeText}>{statusConfig.label}</Text>
+              </View>
+            )}
+          </View>
+        </LinearGradient>
+
+        {/* Info Card */}
         <MotiView
           from={{ opacity: 0, translateY: 20 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 600, delay: 100 }}
-          className="bg-white rounded-3xl p-5 mb-6 shadow-sm border border-gray-100"
+          transition={{ type: 'timing', duration: 500, delay: 100 }}
+          style={styles.infoCard}
         >
-          <Text className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-wider">Account Information</Text>
+          <Text style={styles.cardSectionLabel}>Account Information</Text>
 
-          <View className="flex-row items-center py-3 border-b border-gray-50 mb-1">
-            <View className="w-10 h-10 rounded-full bg-blue-50 items-center justify-center mr-4">
-              <Mail color="#3b82f6" size={18} />
+          <View style={styles.infoRow}>
+            <View style={[styles.infoIconBg, { backgroundColor: '#eff6ff' }]}>
+              <Mail color="#3b82f6" size={17} />
             </View>
-            <View className="flex-1">
-              <Text className="text-xs text-gray-500 mb-1">Email</Text>
-              <Text className="text-base text-gray-900 font-medium">{email || 'Not set'}</Text>
+            <View style={styles.infoText}>
+              <Text style={styles.infoLabel}>Email</Text>
+              <Text style={styles.infoValue}>{email || 'Not set'}</Text>
             </View>
           </View>
 
           {phone ? (
-            <View className="flex-row items-center py-3 border-b border-gray-50 mb-1">
-              <View className="w-10 h-10 rounded-full bg-green-50 items-center justify-center mr-4">
-                <Phone color="#10b981" size={18} />
+            <>
+              <View style={styles.infoDivider} />
+              <View style={styles.infoRow}>
+                <View style={[styles.infoIconBg, { backgroundColor: '#f0fdf4' }]}>
+                  <Phone color="#16a34a" size={17} />
+                </View>
+                <View style={styles.infoText}>
+                  <Text style={styles.infoLabel}>Phone</Text>
+                  <Text style={styles.infoValue}>{phone}</Text>
+                </View>
               </View>
-              <View className="flex-1">
-                <Text className="text-xs text-gray-500 mb-1">Phone</Text>
-                <Text className="text-base text-gray-900 font-medium">{phone}</Text>
-              </View>
-            </View>
+            </>
           ) : null}
 
           {address ? (
-            <View className="flex-row items-center py-3">
-              <View className="w-10 h-10 rounded-full bg-purple-50 items-center justify-center mr-4">
-                <MapPin color="#8b5cf6" size={18} />
+            <>
+              <View style={styles.infoDivider} />
+              <View style={styles.infoRow}>
+                <View style={[styles.infoIconBg, { backgroundColor: '#faf5ff' }]}>
+                  <MapPin color="#8b5cf6" size={17} />
+                </View>
+                <View style={styles.infoText}>
+                  <Text style={styles.infoLabel}>Address</Text>
+                  <Text style={styles.infoValue}>{address}</Text>
+                </View>
               </View>
-              <View className="flex-1">
-                <Text className="text-xs text-gray-500 mb-1">Address</Text>
-                <Text className="text-base text-gray-900 font-medium">{address}</Text>
-              </View>
-            </View>
+            </>
           ) : null}
         </MotiView>
 
-        {/* Menu */}
+        {/* Menu Card */}
         <MotiView
           from={{ opacity: 0, translateY: 20 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 600, delay: 200 }}
-          className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100"
+          transition={{ type: 'timing', duration: 500, delay: 200 }}
+          style={styles.menuCard}
         >
-          <TouchableOpacity className="flex-row items-center p-5 border-b border-gray-50" onPress={() => router.push('/edit-profile')}>
-            <View className="w-10 h-10 rounded-full bg-gray-50 items-center justify-center mr-4">
-              <Edit3 color="#6b7280" size={20} />
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/edit-profile')}>
+            <View style={[styles.menuIconBg, { backgroundColor: '#f1f5f9' }]}>
+              <Edit3 color="#475569" size={18} />
             </View>
-            <Text className="text-base font-semibold text-gray-800 flex-1">Edit Profile</Text>
-            <ChevronRight color="#9ca3af" size={20} />
+            <Text style={styles.menuLabel}>Edit Profile</Text>
+            <ChevronRight color="#cbd5e1" size={19} />
           </TouchableOpacity>
 
-          <TouchableOpacity className="flex-row items-center p-5 border-b border-gray-50" onPress={() => router.push('/orders')}>
-            <View className="w-10 h-10 rounded-full bg-gray-50 items-center justify-center mr-4">
-              <ShoppingBag color="#6b7280" size={20} />
+          <View style={styles.menuDivider} />
+
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/orders')}>
+            <View style={[styles.menuIconBg, { backgroundColor: '#eff6ff' }]}>
+              <ShoppingBag color="#3b82f6" size={18} />
             </View>
-            <Text className="text-base font-semibold text-gray-800 flex-1">My Orders</Text>
-            <ChevronRight color="#9ca3af" size={20} />
+            <Text style={styles.menuLabel}>My Orders</Text>
+            <ChevronRight color="#cbd5e1" size={19} />
           </TouchableOpacity>
 
-          <TouchableOpacity className="flex-row items-center p-5" onPress={handleSignOut}>
-            <View className="w-10 h-10 rounded-full bg-red-50 items-center justify-center mr-4">
-              <LogOut color="#ef4444" size={20} />
+          <View style={styles.menuDivider} />
+
+          <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
+            <View style={[styles.menuIconBg, { backgroundColor: '#fef2f2' }]}>
+              <LogOut color="#ef4444" size={18} />
             </View>
-            <Text className="text-base font-semibold text-red-500 flex-1">Sign Out</Text>
+            <Text style={[styles.menuLabel, { color: '#ef4444' }]}>Sign Out</Text>
           </TouchableOpacity>
         </MotiView>
       </MotiScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scrollContent: { paddingBottom: 100 },
+
+  // Hero Banner
+  heroBanner: {
+    paddingTop: 20, paddingBottom: 40, paddingHorizontal: 20,
+    alignItems: 'center', position: 'relative',
+  },
+  heroDecorCircle: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(34,197,94,0.08)', top: -40, right: -40,
+  },
+  editIconBtn: {
+    position: 'absolute', top: 16, right: 18,
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarWrapper: { marginBottom: 14 },
+  avatar: {
+    width: 84, height: 84, borderRadius: 42,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 3, borderColor: 'rgba(255,255,255,0.3)',
+    shadowColor: '#16a34a', shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4, shadowRadius: 16, elevation: 8,
+  },
+  avatarText: { color: '#fff', fontSize: 36, fontWeight: '800' },
+  heroName: { fontSize: 22, fontWeight: '800', color: '#fff', marginBottom: 10, letterSpacing: -0.4 },
+  heroBadgeRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
+  roleBadge: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20,
+  },
+  roleBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  statusBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 },
+  statusBadgeText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+
+  // Cards
+  infoCard: {
+    backgroundColor: '#fff', borderRadius: 22, marginHorizontal: 16,
+    marginTop: -20, padding: 18, marginBottom: 14,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 5,
+  },
+  cardSectionLabel: {
+    fontSize: 10, fontWeight: '700', color: '#94a3b8',
+    letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14,
+  },
+  infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
+  infoIconBg: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  infoText: { flex: 1 },
+  infoLabel: { fontSize: 11, color: '#94a3b8', fontWeight: '600', marginBottom: 2 },
+  infoValue: { fontSize: 14, color: '#1e293b', fontWeight: '600' },
+  infoDivider: { height: 1, backgroundColor: '#f8fafc', marginVertical: 4 },
+
+  menuCard: {
+    backgroundColor: '#fff', borderRadius: 22, marginHorizontal: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+    overflow: 'hidden',
+  },
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 16 },
+  menuIconBg: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  menuLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: '#1e293b' },
+  menuDivider: { height: 1, backgroundColor: '#f8fafc', marginLeft: 70 },
+});
