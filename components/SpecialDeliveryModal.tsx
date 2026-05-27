@@ -1263,7 +1263,6 @@ const styles = StyleSheet.create({
 
   // Scroll
   scrollArea: {
-    flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 20,

@@ -17,6 +17,7 @@ export const useApiClient = () => {
 
       const headers = new Headers(options.headers);
       headers.set('Content-Type', 'application/json');
+      headers.set('User-Agent', 'KrishiConnectMobile/1.0.0'); // Required by Arcjet Bot Detection
       if (token) {
         headers.set('Authorization', `Bearer ${token}`);
       }
