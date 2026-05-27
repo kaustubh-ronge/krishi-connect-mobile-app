@@ -35,11 +35,6 @@ const FARMER_FIELDS: FieldConfig[] = [
   { key: 'farmName', label: 'Farm Name', placeholder: 'Name of your farm' },
   { key: 'farmSize', label: 'Farm Size (Acres)', placeholder: 'e.g. 5.5', keyboardType: 'numeric' },
   { key: 'farmingExperience', label: 'Farming Exp (Years)', placeholder: 'e.g. 10', keyboardType: 'numeric' },
-  { key: 'address', label: 'Address *', placeholder: 'Your full address', multiline: true },
-  { key: 'city', label: 'City *', placeholder: 'e.g. Pune' },
-  { key: 'pincode', label: 'Pincode *', placeholder: 'e.g. 400001', keyboardType: 'numeric' },
-  { key: 'district', label: 'District', placeholder: 'e.g. Nashik', readOnly: true },
-  { key: 'state', label: 'State', placeholder: 'e.g. Maharashtra', readOnly: true },
   { key: 'primaryProduce', label: 'Primary Produce (comma separated)', placeholder: 'e.g. Wheat, Rice' },
   { key: 'upiId', label: 'UPI ID', placeholder: 'yourname@upi', keyboardType: 'email-address' },
   { key: 'bankName', label: 'Bank Name', placeholder: 'e.g. State Bank of India' },
@@ -52,11 +47,6 @@ const AGENT_FIELDS: FieldConfig[] = [
   { key: 'phone', label: 'Phone Number *', placeholder: '10-digit phone number', keyboardType: 'phone-pad' },
   { key: 'aadharNumber', label: 'Aadhar Number *', placeholder: 'XXXX XXXX XXXX', keyboardType: 'numeric' },
   { key: 'companyName', label: 'Company Name', placeholder: 'Your company or business name' },
-  { key: 'address', label: 'Address *', placeholder: 'Your full address', multiline: true },
-  { key: 'city', label: 'City *', placeholder: 'e.g. Pune' },
-  { key: 'pincode', label: 'Pincode *', placeholder: 'e.g. 400001', keyboardType: 'numeric' },
-  { key: 'district', label: 'District', placeholder: 'e.g. Nashik', readOnly: true },
-  { key: 'state', label: 'State', placeholder: 'e.g. Maharashtra', readOnly: true },
   { key: 'agentType', label: 'Agent Type (comma separated)', placeholder: 'e.g. Wholesaler, Retailer' },
   { key: 'upiId', label: 'UPI ID', placeholder: 'yourname@upi', keyboardType: 'email-address' },
   { key: 'bankName', label: 'Bank Name', placeholder: 'e.g. State Bank of India' },
@@ -73,9 +63,6 @@ const DELIVERY_FIELDS: FieldConfig[] = [
   { key: 'licenseNumber', label: 'Driving License Number *', placeholder: 'Your DL Number' },
   { key: 'radius', label: 'Service Radius (KM) *', placeholder: 'e.g. 50', keyboardType: 'numeric' },
   { key: 'pricePerKm', label: 'Price Per KM (₹) *', placeholder: 'e.g. 10', keyboardType: 'numeric' },
-  { key: 'address', label: 'Address *', placeholder: 'Your full address', multiline: true },
-  { key: 'city', label: 'City *', placeholder: 'e.g. Pune' },
-  { key: 'pincode', label: 'Pincode *', placeholder: 'e.g. 400001', keyboardType: 'numeric' },
   { key: 'bankName', label: 'Bank Name', placeholder: 'e.g. State Bank of India' },
   { key: 'ifscCode', label: 'IFSC Code', placeholder: 'e.g. SBIN0001234' },
   { key: 'accountNumber', label: 'Account Number', placeholder: 'Enter Account Number', keyboardType: 'numeric' },
@@ -99,19 +86,16 @@ const SECTION_KEYS: Record<string, { title: string; icon: any; keys: string[] }[
   farmer: [
     { title: 'Personal Info', icon: User, keys: ['name', 'phone', 'aadharNumber'] },
     { title: 'Farm Details', icon: Tractor, keys: ['farmName', 'farmSize', 'farmingExperience', 'primaryProduce'] },
-    { title: 'Address', icon: MapPin, keys: ['address', 'city', 'pincode', 'district', 'state'] },
     { title: 'Bank & Payment', icon: Wallet, keys: ['upiId', 'bankName', 'ifscCode', 'accountNumber'] },
   ],
   agent: [
     { title: 'Personal Info', icon: User, keys: ['name', 'phone', 'aadharNumber'] },
     { title: 'Business Info', icon: Building2, keys: ['companyName', 'agentType'] },
-    { title: 'Address', icon: MapPin, keys: ['address', 'city', 'pincode', 'district', 'state'] },
     { title: 'Bank & Payment', icon: Wallet, keys: ['upiId', 'bankName', 'ifscCode', 'accountNumber'] },
   ],
   delivery: [
     { title: 'Personal Info', icon: User, keys: ['name', 'phone', 'aadharNumber'] },
     { title: 'Vehicle Info', icon: Truck, keys: ['vehicleType', 'vehicleNumber', 'licenseNumber', 'radius', 'pricePerKm'] },
-    { title: 'Address', icon: MapPin, keys: ['address', 'city', 'pincode'] },
     { title: 'Bank Details', icon: Wallet, keys: ['bankName', 'ifscCode', 'accountNumber'] },
   ],
 };
@@ -582,13 +566,25 @@ export default function EditProfileScreen() {
                 <Text style={styles.cardSubtitle}>Your location is required to show you nearby products</Text>
                 <View style={styles.divider} />
                 <LocationPicker
-                  initialLat={profile ? Number((profile as any).lat) : undefined}
-                  initialLng={profile ? Number((profile as any).lng) : undefined}
-                  initialAddress={profile ? formatLocation(profile as any) : undefined}
-                  onLocationSelect={(lat, lng, address) => {
+                  initialData={{
+                    lat: profile ? Number((profile as any).lat) : undefined,
+                    lng: profile ? Number((profile as any).lng) : undefined,
+                    address: profile ? (profile as any).address : undefined,
+                    country: profile ? (profile as any).country : undefined,
+                    state: profile ? (profile as any).state : undefined,
+                    city: profile ? (profile as any).city : undefined,
+                    pincode: profile ? (profile as any).pincode : undefined,
+                  }}
+                  onLocationSelect={(data) => {
                     setFormData((prev) => {
-                      const updates: any = { ...prev, lat: lat.toString(), lng: lng.toString() };
-                      if (address) updates.address = address;
+                      const updates: any = { ...prev };
+                      if (data.lat !== undefined) updates.lat = data.lat.toString();
+                      if (data.lng !== undefined) updates.lng = data.lng.toString();
+                      if (data.address) updates.address = data.address;
+                      if (data.country) updates.country = data.country;
+                      if (data.state) updates.state = data.state;
+                      if (data.city) updates.city = data.city;
+                      if (data.pincode) updates.pincode = data.pincode;
                       return updates;
                     });
                   }}

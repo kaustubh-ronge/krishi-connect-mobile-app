@@ -34,7 +34,7 @@ export const useApiClient = () => {
 
       return data;
     } catch (error: any) {
-      console.error(`API Error [${endpoint}]:`, error.message);
+      console.warn(`API Warning [${endpoint}]:`, error.message);
       throw error;
     }
   };
