@@ -1,14 +1,15 @@
 import React, { useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Colors } from '@/constants/Colors';
 import { useApiClient } from '@/services/api';
 import { useState } from 'react';
-import { Package, ChevronRight, ArrowLeft } from 'lucide-react-native';
+import { Package, ChevronRight, ArrowLeft, ShoppingBag } from 'lucide-react-native';
+import { MotiView } from 'moti';
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
   PROCESSING:  { bg: '#fef9c3', text: '#a16207', label: 'Processing' },
@@ -53,7 +54,7 @@ export default function OrdersScreen() {
     }, [])
   );
 
-  const renderOrder = ({ item }: { item: any }) => {
+  const renderOrder = ({ item, index }: { item: any; index: number }) => {
     const status = item.orderStatus || 'PROCESSING';
     const paymentStatus = item.paymentStatus || 'PENDING';
     const statusStyle = STATUS_STYLES[status] || STATUS_STYLES.PROCESSING;
@@ -64,56 +65,81 @@ export default function OrdersScreen() {
     const itemCount = item.items?.length || item._count?.items || 0;
 
     return (
-      <TouchableOpacity
-        className="bg-white rounded-2xl p-4 mb-3 border border-gray-100 shadow-sm"
-        onPress={() => router.push(`/order-detail/${item.id}`)}
-        activeOpacity={0.85}
+      <MotiView
+        from={{ opacity: 0, translateY: 16 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: 'timing', duration: 360, delay: index * 55 }}
       >
-        <View className="flex-row justify-between items-start mb-3">
-          <View>
-            <Text className="text-base font-bold text-gray-900">Order #{item.invoiceNumber || item.id.slice(-8).toUpperCase()}</Text>
-            <Text className="text-xs text-gray-500 mt-1">{date}</Text>
+        <TouchableOpacity
+          style={styles.orderCard}
+          onPress={() => router.push(`/order-detail/${item.id}`)}
+          activeOpacity={0.88}
+        >
+          <View style={styles.orderTop}>
+            <View>
+              <Text style={styles.orderNumber}>
+                Order #{item.invoiceNumber || item.id.slice(-8).toUpperCase()}
+              </Text>
+              <Text style={styles.orderDate}>{date}</Text>
+            </View>
+            <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+              <Text style={[styles.statusText, { color: statusStyle.text }]}>{statusStyle.label}</Text>
+            </View>
           </View>
-          <View style={{ backgroundColor: statusStyle.bg }} className="px-2.5 py-1 rounded-xl">
-            <Text style={{ color: statusStyle.text }} className="text-xs font-bold">{statusStyle.label}</Text>
+
+          <View style={styles.orderMeta}>
+            <Package color="#94a3b8" size={14} />
+            <Text style={styles.orderMetaText}>
+              {itemCount} item{itemCount !== 1 ? 's' : ''}
+            </Text>
+            <View style={styles.metaDot} />
+            <Text style={[styles.paymentLabel, { color: paymentStyle.color }]}>
+              {item.paymentMethod === 'COD' ? 'Cash on Delivery' : `Online · ${paymentStyle.label}`}
+            </Text>
           </View>
-        </View>
 
-        <View className="flex-row items-center gap-1.5 mb-3">
-          <Package color={Colors.light.icon} size={14} />
-          <Text className="text-sm text-gray-500">{itemCount} item{itemCount !== 1 ? 's' : ''}</Text>
-          <Text className="text-sm text-gray-500 mx-1">•</Text>
-          <Text style={{ color: paymentStyle.color }} className="text-sm font-medium">
-            {item.paymentMethod === 'COD' ? 'COD' : `Online · ${paymentStyle.label}`}
-          </Text>
-        </View>
-
-        <View className="flex-row justify-between items-center pt-3 border-t border-gray-100">
-          <Text className="text-lg font-bold text-gray-900">₹{Number(item.totalAmount || 0).toFixed(2)}</Text>
-          <ChevronRight color={Colors.light.icon} size={18} />
-        </View>
-      </TouchableOpacity>
+          <View style={styles.orderBottom}>
+            <Text style={styles.orderAmount}>₹{Number(item.totalAmount || 0).toFixed(2)}</Text>
+            <View style={styles.viewDetailBtn}>
+              <Text style={styles.viewDetailText}>View Details</Text>
+              <ChevronRight color="#16a34a" size={16} />
+            </View>
+          </View>
+        </TouchableOpacity>
+      </MotiView>
     );
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <View className="flex-row items-center px-4 py-3.5 bg-white border-b border-gray-100">
-        <TouchableOpacity onPress={() => router.back()} className="p-1">
-          <ArrowLeft color={Colors.light.text} size={22} />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header */}
+      <LinearGradient
+        colors={['#1e293b', '#0f172a']}
+        style={styles.header}
+      >
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}
+        >
+          <ArrowLeft color="#fff" size={20} />
         </TouchableOpacity>
-        <Text className="text-xl font-bold text-gray-900 ml-3">My Orders</Text>
-      </View>
+        <View style={{ flex: 1, marginLeft: 14 }}>
+          <Text style={styles.headerTitle}>My Orders</Text>
+          <Text style={styles.headerSubtitle}>Track your purchase history</Text>
+        </View>
+      </LinearGradient>
 
       {loading && !refreshing ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color={Colors.light.primary} />
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#16a34a" />
         </View>
       ) : error ? (
-        <View className="flex-1 justify-center items-center p-6">
-          <Text className="text-red-500 text-base text-center mb-4">{error}</Text>
-          <TouchableOpacity className="bg-primary px-6 py-3 rounded-xl" onPress={() => { setLoading(true); fetchOrders(); }}>
-            <Text className="text-white font-bold">Retry</Text>
+        <View style={styles.centerContainer}>
+          <Package color="#94a3b8" size={48} />
+          <Text style={styles.errorTitle}>Something went wrong</Text>
+          <Text style={styles.errorSubtitle}>{error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => { setLoading(true); fetchOrders(); }}>
+            <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -121,23 +147,30 @@ export default function OrdersScreen() {
           data={orders}
           keyExtractor={(item) => item.id}
           renderItem={renderOrder}
-          contentContainerClassName="p-3 pb-20"
+          contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => { setRefreshing(true); fetchOrders(); }}
-              colors={[Colors.light.primary]}
+              colors={['#16a34a']} tintColor="#16a34a"
             />
           }
           ListEmptyComponent={
-            <View className="pt-20 items-center gap-3">
-              <Package color={Colors.light.icon} size={56} />
-              <Text className="text-xl font-bold text-gray-900">No orders yet</Text>
-              <Text className="text-sm text-gray-500 text-center">Your order history will appear here</Text>
-              <TouchableOpacity className="bg-primary px-6 py-3 rounded-xl mt-2" onPress={() => router.push('/(tabs)')}>
-                <Text className="text-white font-bold text-base">Browse Marketplace</Text>
+            <MotiView
+              from={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'spring', delay: 100 }}
+              style={styles.emptyContainer}
+            >
+              <View style={styles.emptyIconBg}>
+                <ShoppingBag color="#94a3b8" size={44} />
+              </View>
+              <Text style={styles.emptyTitle}>No orders yet</Text>
+              <Text style={styles.emptySubtitle}>Your order history will appear here</Text>
+              <TouchableOpacity style={styles.browseBtn} onPress={() => router.push('/(tabs)')}>
+                <Text style={styles.browseBtnText}>Browse Marketplace</Text>
               </TouchableOpacity>
-            </View>
+            </MotiView>
           }
         />
       )}
@@ -145,4 +178,52 @@ export default function OrdersScreen() {
   );
 }
 
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f8fafc' },
 
+  header: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 18, paddingTop: 14, paddingBottom: 18,
+  },
+  backBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
+  headerSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.5)', fontWeight: '500', marginTop: 2 },
+
+  listContent: { padding: 14, paddingBottom: 100 },
+
+  orderCard: {
+    backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07, shadowRadius: 10, elevation: 3,
+  },
+  orderTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
+  orderNumber: { fontSize: 15, fontWeight: '800', color: '#0f172a', letterSpacing: -0.2 },
+  orderDate: { fontSize: 12, color: '#94a3b8', marginTop: 3, fontWeight: '500' },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  statusText: { fontSize: 11, fontWeight: '800' },
+  orderMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  orderMetaText: { fontSize: 13, color: '#64748b', fontWeight: '500' },
+  metaDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#cbd5e1' },
+  paymentLabel: { fontSize: 13, fontWeight: '600' },
+  orderBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  orderAmount: { fontSize: 20, fontWeight: '900', color: '#0f172a' },
+  viewDetailBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  viewDetailText: { fontSize: 13, fontWeight: '700', color: '#16a34a' },
+
+  centerContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
+  errorTitle: { fontSize: 16, fontWeight: '700', color: '#1e293b', marginTop: 14, marginBottom: 6 },
+  errorSubtitle: { fontSize: 13, color: '#94a3b8', textAlign: 'center', marginBottom: 20 },
+  retryBtn: { backgroundColor: '#16a34a', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 },
+  retryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  emptyContainer: { paddingTop: 80, alignItems: 'center', gap: 12 },
+  emptyIconBg: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
+  emptyTitle: { fontSize: 20, fontWeight: '800', color: '#0f172a', marginTop: 4 },
+  emptySubtitle: { fontSize: 13, color: '#94a3b8', fontWeight: '500', textAlign: 'center' },
+  browseBtn: { backgroundColor: '#16a34a', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14, marginTop: 8 },
+  browseBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+});

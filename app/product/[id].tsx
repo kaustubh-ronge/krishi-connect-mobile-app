@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, Image, TouchableOpacity,
-  ActivityIndicator, ScrollView, FlatList, Alert,
+  ActivityIndicator, ScrollView, Alert, StyleSheet,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { Colors } from '@/constants/Colors';
@@ -15,6 +16,7 @@ import { ArrowLeft, MapPin, Package, Plus, Minus, ShoppingCart, Truck, AlertCirc
 import SpecialDeliveryModal from '@/components/SpecialDeliveryModal';
 
 export default function ProductDetailScreen() {
+  const insets = useSafeAreaInsets();
   const productId = getRouteParam(useLocalSearchParams<{ id: string }>().id);
   const api = useApiClient();
   const router = useRouter();
@@ -130,34 +132,35 @@ export default function ProductDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
-        <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-gray-100">
-          <TouchableOpacity onPress={() => router.back()} className="p-2 bg-gray-50 rounded-full">
-            <ArrowLeft color={Colors.light.text} size={22} />
+      <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+        <LinearGradient colors={['#1e293b', '#0f172a']} style={{ paddingTop: insets.top + 12, paddingBottom: 16, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+            <ArrowLeft color="#fff" size={20} />
           </TouchableOpacity>
+        </LinearGradient>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color="#16a34a" />
         </View>
-        <View className="flex-1 items-center justify-center p-6">
-          <ActivityIndicator size="large" color={Colors.light.primary} />
-        </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (error || !product) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
-        <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-gray-100">
-          <TouchableOpacity onPress={() => router.back()} className="p-2 bg-gray-50 rounded-full">
-            <ArrowLeft color={Colors.light.text} size={22} />
+      <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+        <LinearGradient colors={['#1e293b', '#0f172a']} style={{ paddingTop: insets.top + 12, paddingBottom: 16, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+            <ArrowLeft color="#fff" size={20} />
+          </TouchableOpacity>
+        </LinearGradient>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Package color="#94a3b8" size={56} />
+          <Text style={{ fontSize: 17, fontWeight: '700', color: '#1e293b', marginTop: 16, marginBottom: 8 }}>{error || 'Product not found'}</Text>
+          <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')} style={{ backgroundColor: '#16a34a', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 }}>
+            <Text style={{ color: '#fff', fontWeight: '700' }}>Go Back</Text>
           </TouchableOpacity>
         </View>
-        <View className="flex-1 items-center justify-center p-6">
-          <Text className="text-lg font-semibold text-gray-800 mb-4">{error || 'Product not found'}</Text>
-          <TouchableOpacity className="bg-primary px-6 py-3 rounded-full" onPress={() => router.back()}>
-            <Text className="text-white font-bold">Go Back</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -192,16 +195,25 @@ export default function ProductDetailScreen() {
   const isGrayscaled = isOutOfRange && !isBypassed;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <View className="flex-row items-center justify-between px-4 py-3 bg-white border-b border-gray-100">
-        <TouchableOpacity onPress={() => router.back()} className="p-2 bg-gray-50 rounded-full">
-          <ArrowLeft color={Colors.light.text} size={22} />
+    <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+      <LinearGradient
+        colors={['#1e293b', '#0f172a']}
+        style={{ paddingTop: insets.top + 12, paddingBottom: 16, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center' }}
+      >
+        <TouchableOpacity
+          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}
+          style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <ArrowLeft color="#fff" size={20} />
         </TouchableOpacity>
-        <Text className="text-lg font-bold text-gray-800 flex-1 mx-3" numberOfLines={1}>{product.productName}</Text>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/cart')} className="p-2 bg-green-50 rounded-full">
-          <ShoppingCart color={Colors.light.primary} size={22} />
+        <Text style={{ flex: 1, fontSize: 16, fontWeight: '800', color: '#fff', marginHorizontal: 12, letterSpacing: -0.2 }} numberOfLines={1}>{product.productName}</Text>
+        <TouchableOpacity
+          onPress={() => router.push('/(tabs)/cart')}
+          style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(74,222,128,0.15)', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <ShoppingCart color="#4ade80" size={20} />
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={{ opacity: isGrayscaled ? 0.5 : 1 }}>
@@ -255,16 +267,18 @@ export default function ProductDetailScreen() {
           </View>
 
           {/* Seller Info */}
-          <View className="flex-row items-center p-4 bg-gray-50 rounded-2xl mb-6 border border-gray-100">
-            <View className="w-12 h-12 bg-primary rounded-full items-center justify-center mr-4">
-              <Text className="text-xl font-bold text-white">{sellerName[0]?.toUpperCase()}</Text>
-            </View>
-            <View className="flex-1">
-              <Text className="text-base font-bold text-gray-900 mb-1">{sellerName}</Text>
-              <View className="flex-row items-center">
-                <MapPin color={Colors.light.icon} size={13} />
-                <Text className="text-xs text-gray-500 ml-1">{location}</Text>
-              </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', padding: 14, backgroundColor: '#f8fafc', borderRadius: 18, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0' }}>
+            <LinearGradient colors={['#15803d', '#22c55e']} style={{ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 14 }} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#fff' }}>{sellerName[0]?.toUpperCase()}</Text>
+            </LinearGradient>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, fontWeight: '800', color: '#0f172a', marginBottom: 4 }}>{sellerName}</Text>
+              {location ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <MapPin color="#94a3b8" size={13} />
+                  <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: '500' }}>{location}</Text>
+                </View>
+              ) : null}
             </View>
           </View>
 
@@ -319,7 +333,7 @@ export default function ProductDetailScreen() {
       </ScrollView>
 
       {/* Add to Cart Footer */}
-      <View className="flex-row items-center justify-between p-4 bg-white border-t border-gray-100 pb-8">
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 14, paddingBottom: insets.bottom + 14, backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 8 }}>
         <View className="flex-1 mr-4">
           <Text className="text-sm font-semibold text-gray-500">Total</Text>
           <Text className="text-2xl font-black text-gray-900">₹{(quantity * product.pricePerUnit).toFixed(2)}</Text>
@@ -378,7 +392,7 @@ export default function ProductDetailScreen() {
         product={product}
         onSuccess={reloadRequests}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

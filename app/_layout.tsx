@@ -140,7 +140,7 @@ export default function RootLayout() {
             <Stack.Screen name="sales" options={{ headerShown: false }} />
             <Stack.Screen name="+not-found" />
           </Stack>
-          <StatusBar style="auto" />
+          <StatusBar style="light" backgroundColor="#0f172a" />
         </ThemeProvider>
       </ClerkLoaded>
     </ClerkProvider>

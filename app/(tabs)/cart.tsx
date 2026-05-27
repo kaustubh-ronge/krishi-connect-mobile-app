@@ -4,6 +4,7 @@ import {
   ActivityIndicator, Image, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCartStore } from '@/store/cartStore';
 import { useUserStore } from '@/store/userStore';
@@ -421,15 +422,24 @@ export default function CartScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <View className="bg-white px-4 py-4 border-b border-gray-100 flex-row items-center justify-between">
-        <Text className="text-2xl font-extrabold text-gray-900 tracking-tight">My Cart</Text>
+    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+      <LinearGradient
+        colors={['#15803d', '#16a34a']}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+        style={{ paddingHorizontal: 18, paddingTop: 14, paddingBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+      >
+        <View>
+          <Text style={{ fontSize: 24, fontWeight: '800', color: '#fff', letterSpacing: -0.4 }}>My Cart</Text>
+          {items.length > 0 && activeTab === 'CART' && (
+            <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', fontWeight: '600', marginTop: 2 }}>{items.length} item{items.length !== 1 ? 's' : ''} in cart</Text>
+          )}
+        </View>
         {items.length > 0 && activeTab === 'CART' && (
-          <View className="bg-green-100 px-3 py-1 rounded-full">
-            <Text className="text-sm font-bold text-green-700">{items.length} items</Text>
+          <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}>
+            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>{items.length}</Text>
           </View>
         )}
-      </View>
+      </LinearGradient>
 
       <View className="bg-white border-b border-gray-100 flex-row">
         <TouchableOpacity

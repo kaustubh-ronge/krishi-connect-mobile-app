@@ -1,11 +1,14 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
+import {
+  View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert, Image, StyleSheet,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { ArrowLeft, Package, Trash2, Edit } from 'lucide-react-native';
-import { Colors } from '@/constants/Colors';
+import { ArrowLeft, Package, Trash2, Edit, PlusCircle } from 'lucide-react-native';
 import { useApiClient } from '@/services/api';
 import { unwrapData } from '@/lib/apiHelpers';
+import { MotiView } from 'moti';
 
 export default function MyListingsScreen() {
   const router = useRouter();
@@ -25,28 +28,23 @@ export default function MyListingsScreen() {
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchListings();
-    }, [fetchListings])
-  );
+  useFocusEffect(useCallback(() => { fetchListings(); }, [fetchListings]));
 
   const handleDelete = (id: string) => {
     Alert.alert(
-      "Delete Listing",
-      "Are you sure you want to delete this listing? This action cannot be undone.",
+      'Delete Listing',
+      'Are you sure you want to delete this listing? This action cannot be undone.',
       [
-        { text: "Cancel", style: "cancel" },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: "Delete",
-          style: "destructive",
+          text: 'Delete',
+          style: 'destructive',
           onPress: async () => {
             try {
               await api.del(`mobile/v1/seller/listings?id=${id}`);
               setListings(prev => prev.filter(item => item.id !== id));
-              Alert.alert("Success", "Listing deleted.");
             } catch (error: any) {
-              Alert.alert("Error", error.message || "Failed to delete listing.");
+              Alert.alert('Error', error.message || 'Failed to delete listing.');
             }
           }
         }
@@ -54,71 +52,85 @@ export default function MyListingsScreen() {
     );
   };
 
-  const renderItem = ({ item }: { item: any }) => (
-    <View className="bg-white rounded-2xl overflow-hidden border border-gray-100 mb-4">
-      <Image 
-        source={{ uri: item.images?.[0] || 'https://via.placeholder.com/150' }} 
-        className="w-full h-32 bg-gray-200" 
-      />
-      <View className="p-4">
-        <View className="flex-row justify-between items-center mb-1">
-          <Text className="text-lg font-bold text-gray-800 flex-1 mr-2" numberOfLines={1}>{item.productName}</Text>
-          <View className={`px-2 py-1 rounded-lg ${item.status === "ACTIVE" ? "bg-green-100" : "bg-red-100"}`}>
-            <Text className="text-xs font-bold text-gray-800">{item.status}</Text>
-          </View>
-        </View>
-        
-        <Text className="text-sm text-gray-500 mb-3">{item.category} • {item.qualityGrade || 'Standard'}</Text>
-        
-        <View className="flex-row justify-between mb-4 pb-4 border-b border-gray-100">
-          <Text className="text-base font-bold text-green-500">₹{item.pricePerUnit}/{item.unit}</Text>
-          <Text className="text-sm font-semibold text-gray-600">Stock: {item.availableStock} {item.unit}</Text>
+  const renderItem = ({ item, index }: { item: any; index: number }) => (
+    <MotiView
+      from={{ opacity: 0, translateY: 16 }}
+      animate={{ opacity: 1, translateY: 0 }}
+      transition={{ type: 'timing', duration: 350, delay: index * 60 }}
+    >
+      <View style={styles.card}>
+        <Image
+          source={{ uri: item.images?.[0] || 'https://via.placeholder.com/150' }}
+          style={styles.cardImage}
+          resizeMode="cover"
+        />
+        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.5)']} style={styles.imageGradient} />
+        <View style={[styles.statusPill, { backgroundColor: item.status === 'ACTIVE' ? '#16a34a' : '#ef4444' }]}>
+          <Text style={styles.statusPillText}>{item.status}</Text>
         </View>
 
-        <View className="flex-row gap-3">
-          <TouchableOpacity 
-            className="flex-1 flex-row items-center justify-center p-2.5 rounded-xl bg-gray-100 gap-2"
-            onPress={() => router.push(`/edit-listing/${item.id}`)}
-          >
-            <Edit size={16} color="#4b5563" />
-            <Text className="text-sm font-semibold text-gray-600">Edit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            className="flex-1 flex-row items-center justify-center p-2.5 rounded-xl bg-red-50 gap-2"
-            onPress={() => handleDelete(item.id)}
-          >
-            <Trash2 size={16} color="#ef4444" />
-            <Text className="text-sm font-semibold text-red-500">Delete</Text>
-          </TouchableOpacity>
+        <View style={styles.cardBody}>
+          <View style={styles.cardTop}>
+            <Text style={styles.productName} numberOfLines={1}>{item.productName}</Text>
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryText}>{item.category}</Text>
+            </View>
+          </View>
+
+          <View style={styles.priceRow}>
+            <Text style={styles.price}>₹{item.pricePerUnit}<Text style={styles.priceUnit}>/{item.unit}</Text></Text>
+            <Text style={styles.stock}>📦 {item.availableStock} {item.unit}</Text>
+          </View>
+
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={styles.editBtn}
+              onPress={() => router.push(`/edit-listing/${item.id}`)}
+            >
+              <Edit size={15} color="#475569" />
+              <Text style={styles.editBtnText}>Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.deleteBtn}
+              onPress={() => handleDelete(item.id)}
+            >
+              <Trash2 size={15} color="#ef4444" />
+              <Text style={styles.deleteBtnText}>Delete</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
-    </View>
+    </MotiView>
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <View className="flex-row items-center justify-between p-4 bg-white border-b border-gray-100">
-        <TouchableOpacity className="p-2 rounded-lg bg-gray-100" onPress={() => router.back()}>
-          <ArrowLeft color="#1f2937" size={24} />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <LinearGradient colors={['#1e293b', '#0f172a']} style={styles.header}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}>
+          <ArrowLeft color="#fff" size={20} />
         </TouchableOpacity>
-        <Text className="text-lg font-bold text-gray-900">My Inventory</Text>
-        <View style={{width: 40}} />
-      </View>
+        <View style={{ flex: 1, marginLeft: 14 }}>
+          <Text style={styles.headerTitle}>My Inventory</Text>
+          <Text style={styles.headerSubtitle}>{listings.length} listing{listings.length !== 1 ? 's' : ''}</Text>
+        </View>
+        <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/create-listing')}>
+          <PlusCircle color="#4ade80" size={22} />
+        </TouchableOpacity>
+      </LinearGradient>
 
       {loading ? (
-        <View className="flex-1 justify-center items-center p-6">
-          <ActivityIndicator size="large" color={Colors.light.primary} />
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#16a34a" />
         </View>
       ) : listings.length === 0 ? (
-        <View className="flex-1 justify-center items-center p-6">
-          <Package size={64} color="#d1d5db" />
-          <Text className="text-xl font-bold text-gray-800 mt-4">No Listings Yet</Text>
-          <Text className="text-sm text-gray-500 text-center mt-2 mb-6">You haven't added any products to sell.</Text>
-          <TouchableOpacity 
-            className="bg-primary px-6 py-3 rounded-xl"
-            onPress={() => router.push('/create-listing')}
-          >
-            <Text className="text-white font-bold text-base">Create Listing</Text>
+        <View style={styles.centerContainer}>
+          <View style={styles.emptyIconBg}>
+            <Package color="#94a3b8" size={44} />
+          </View>
+          <Text style={styles.emptyTitle}>No Listings Yet</Text>
+          <Text style={styles.emptySubtitle}>You haven't added any products to sell.</Text>
+          <TouchableOpacity style={styles.createBtn} onPress={() => router.push('/create-listing')}>
+            <Text style={styles.createBtnText}>Create Your First Listing</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -126,7 +138,7 @@ export default function MyListingsScreen() {
           data={listings}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerClassName="p-4 pb-20"
+          contentContainerStyle={styles.listContent}
           refreshing={loading}
           onRefresh={fetchListings}
         />
@@ -135,4 +147,43 @@ export default function MyListingsScreen() {
   );
 }
 
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingTop: 14, paddingBottom: 18 },
+  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
+  headerSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.5)', fontWeight: '500', marginTop: 2 },
+  addBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(74,222,128,0.15)', alignItems: 'center', justifyContent: 'center' },
 
+  listContent: { padding: 14, paddingBottom: 100 },
+
+  card: { backgroundColor: '#fff', borderRadius: 20, marginBottom: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
+  cardImage: { width: '100%', height: 150 },
+  imageGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 80 },
+  statusPill: { position: 'absolute', top: 12, right: 12, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  statusPillText: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.4 },
+
+  cardBody: { padding: 14 },
+  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  productName: { fontSize: 16, fontWeight: '800', color: '#0f172a', flex: 1, marginRight: 8 },
+  categoryBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  categoryText: { fontSize: 11, fontWeight: '600', color: '#64748b' },
+
+  priceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  price: { fontSize: 20, fontWeight: '900', color: '#16a34a' },
+  priceUnit: { fontSize: 12, fontWeight: '500', color: '#94a3b8' },
+  stock: { fontSize: 12, fontWeight: '600', color: '#64748b' },
+
+  actionRow: { flexDirection: 'row', gap: 10 },
+  editBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 12, backgroundColor: '#f1f5f9' },
+  editBtnText: { fontSize: 13, fontWeight: '700', color: '#475569' },
+  deleteBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 12, backgroundColor: '#fef2f2' },
+  deleteBtnText: { fontSize: 13, fontWeight: '700', color: '#ef4444' },
+
+  centerContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
+  emptyIconBg: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  emptyTitle: { fontSize: 20, fontWeight: '800', color: '#0f172a', marginBottom: 8 },
+  emptySubtitle: { fontSize: 13, color: '#94a3b8', fontWeight: '500', textAlign: 'center', marginBottom: 20 },
+  createBtn: { backgroundColor: '#16a34a', paddingHorizontal: 24, paddingVertical: 13, borderRadius: 16 },
+  createBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+});
