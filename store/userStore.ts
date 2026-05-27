@@ -35,6 +35,7 @@ interface UserState {
   profile: UserProfile | null;
   role: string;
   loading: boolean;
+  initialized: boolean;
   error: string | null;
   fetchProfile: (api: any) => Promise<void>;
   clearProfile: () => void;
@@ -44,9 +45,10 @@ export const useUserStore = create<UserState>((set) => ({
   profile: null,
   role: '',
   loading: false,
+  initialized: false,
   error: null,
 
-  clearProfile: () => set({ profile: null, role: '', error: null }),
+  clearProfile: () => set({ profile: null, role: '', error: null, initialized: false }),
 
   fetchProfile: async (api) => {
     set({ loading: true, error: null });
@@ -59,7 +61,7 @@ export const useUserStore = create<UserState>((set) => ({
     } catch (err: any) {
       set({ error: err.message || 'Failed to fetch profile' });
     } finally {
-      set({ loading: false });
+      set({ loading: false, initialized: true });
     }
   },
 }));

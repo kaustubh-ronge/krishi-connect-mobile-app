@@ -44,7 +44,7 @@ function AuthGuard() {
   const segments = useSegments();
   const router = useRouter();
   const api = useApiClient();
-  const { role, profile, fetchProfile, loading } = useUserStore();
+  const { role, profile, fetchProfile, loading, initialized } = useUserStore();
 
   useEffect(() => {
     if (isSignedIn) {
@@ -83,7 +83,7 @@ function AuthGuard() {
       return;
     }
 
-    if (isSignedIn && loading && !role) return;
+    if (isSignedIn && !initialized) return;
 
     // For signed-in users, check if they need onboarding ONLY IF they are on a protected route
     // OR if we want to force them to onboard even to browse? The user said:
@@ -107,7 +107,7 @@ function AuthGuard() {
     if (inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [isSignedIn, isLoaded, segments, role, profile, loading]);
+  }, [isSignedIn, isLoaded, segments, role, profile, loading, initialized]);
 
   return null;
 }
