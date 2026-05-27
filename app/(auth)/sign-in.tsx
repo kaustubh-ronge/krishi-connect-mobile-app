@@ -52,14 +52,13 @@ export default function SignInScreen() {
       });
       if (completeSignIn.status === 'complete') {
         await setActive({ session: completeSignIn.createdSessionId });
-        router.replace('/(tabs)');
       } else {
         setError('Sign in requires further steps. Please verify your email or phone.');
+        setLoading(false);
       }
     } catch (err: any) {
       console.error(JSON.stringify(err, null, 2));
       setError(err.errors?.[0]?.message || 'An error occurred during sign in.');
-    } finally {
       setLoading(false);
     }
   };
@@ -73,12 +72,10 @@ export default function SignInScreen() {
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
-        router.replace('/(tabs)');
       }
     } catch (err: any) {
       console.error('OAuth error', err);
       setError('Google Sign-In failed or was cancelled.');
-    } finally {
       setLoading(false);
     }
   };

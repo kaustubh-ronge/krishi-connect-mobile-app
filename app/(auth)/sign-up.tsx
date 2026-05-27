@@ -68,12 +68,10 @@ export default function SignUpScreen() {
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
-        router.replace('/onboarding');
       }
     } catch (err: any) {
       console.error('OAuth error', err);
       setError('Google Sign-Up failed or was cancelled.');
-    } finally {
       setLoading(false);
     }
   };
@@ -86,14 +84,13 @@ export default function SignUpScreen() {
       const completeSignUp = await signUp.attemptEmailAddressVerification({ code });
       if (completeSignUp.status === 'complete') {
         await setActive({ session: completeSignUp.createdSessionId });
-        router.replace('/onboarding');
       } else {
         setError('Verification incomplete. Please try again.');
+        setLoading(false);
       }
     } catch (err: any) {
       console.error(JSON.stringify(err, null, 2));
       setError(err.errors?.[0]?.message || 'Verification failed.');
-    } finally {
       setLoading(false);
     }
   };

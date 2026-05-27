@@ -6,10 +6,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useApiClient } from '@/services/api';
-import { Tractor, Briefcase, Truck, ChevronRight, Leaf } from 'lucide-react-native';
+import { Tractor, Briefcase, Truck, ChevronRight, Leaf, ArrowLeft } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUserStore } from '@/store/userStore';
+import { useCartStore } from '@/store/cartStore';
+import { useAuth } from '@clerk/clerk-expo';
+import { Alert } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -49,10 +52,28 @@ const ROLES = [
 export default function OnboardingScreen() {
   const router = useRouter();
   const api = useApiClient();
-  const { fetchProfile } = useUserStore();
+  const { fetchProfile, clearProfile } = useUserStore();
+  const { clearLocalCart } = useCartStore();
+  const { signOut } = useAuth();
+  
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const handleSignOut = async () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { 
+        text: 'Sign Out', 
+        style: 'destructive', 
+        onPress: async () => {
+          clearLocalCart();
+          clearProfile();
+          try { await signOut(); } catch (e) { console.error('Sign out error', e); }
+        }
+      },
+    ]);
+  };
 
   const onContinue = async () => {
     if (!selectedRole) return;
@@ -90,6 +111,16 @@ export default function OnboardingScreen() {
       <View style={styles.decorCircle2} />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        {/* Top Bar with Sign Out and Back */}
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')} style={styles.backBtn} activeOpacity={0.7}>
+            <ArrowLeft color="rgba(255,255,255,0.7)" size={18} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleSignOut} style={styles.signOutBtn} activeOpacity={0.7}>
+            <Text style={styles.signOutText}>Switch Account</Text>
+          </TouchableOpacity>
+        </View>
+
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -256,7 +287,13 @@ const styles = StyleSheet.create({
     bottom: 100, left: -60,
   },
 
-  scrollContent: { paddingHorizontal: 22, paddingBottom: 32, paddingTop: 16 },
+  // Top Bar
+  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 22, paddingTop: 10 },
+  backBtn: { backgroundColor: 'rgba(255,255,255,0.1)', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+  signOutBtn: { backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+  signOutText: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '700' },
+
+  scrollContent: { paddingHorizontal: 22, paddingBottom: 32, paddingTop: 6 },
 
   // Hero
   hero: { alignItems: 'center', marginBottom: 32, marginTop: 16 },

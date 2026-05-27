@@ -15,7 +15,6 @@ import {
   LogOut, ChevronRight, ShoppingBag, PlusCircle, ClipboardList,
   IndianRupee, TrendingUp,
 } from 'lucide-react-native';
-import { MotiView, MotiScrollView } from 'moti';
 
 const ROLE_LABELS: Record<string, string> = {
   farmer: '🌾 Farmer',
@@ -161,7 +160,7 @@ export default function DashboardScreen() {
         <Text style={styles.headerSubtitle}>Welcome back, {displayName.split(' ')[0]}!</Text>
       </LinearGradient>
 
-      <MotiScrollView
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
@@ -172,10 +171,7 @@ export default function DashboardScreen() {
         }
       >
         {/* Profile Card */}
-        <MotiView
-          from={{ opacity: 0, translateY: -16 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'spring', damping: 18 }}
+        <View
           style={styles.profileCard}
         >
           <LinearGradient
@@ -205,14 +201,11 @@ export default function DashboardScreen() {
               </View>
             </View>
           </LinearGradient>
-        </MotiView>
+        </View>
 
         {/* Performance Card */}
         {(role === 'farmer' || role === 'agent') && sellingStatus === 'APPROVED' && (
-          <MotiView
-            from={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', delay: 100 }}
+          <View
             style={styles.performanceCardWrapper}
           >
             <LinearGradient
@@ -236,7 +229,7 @@ export default function DashboardScreen() {
                 </View>
               </View>
             </LinearGradient>
-          </MotiView>
+          </View>
         )}
 
         {/* Quick Actions */}
@@ -245,11 +238,8 @@ export default function DashboardScreen() {
           {getQuickActions().map((action, index) => {
             const Icon = action.icon;
             return (
-              <MotiView
+              <View
                 key={action.id}
-                from={{ opacity: 0, scale: 0.88 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: 'spring', delay: index * 80 }}
                 style={styles.actionCardWrapper}
               >
                 <TouchableOpacity
@@ -267,17 +257,14 @@ export default function DashboardScreen() {
                   <Text style={styles.actionTitle}>{action.title}</Text>
                   <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
                 </TouchableOpacity>
-              </MotiView>
+              </View>
             );
           })}
         </View>
 
         {/* Account Section */}
         <Text style={styles.sectionTitle}>Account</Text>
-        <MotiView
-          from={{ opacity: 0, translateY: 20 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 500, delay: 300 }}
+        <View
           style={styles.menuCard}
         >
           <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/edit-profile')}>
@@ -306,8 +293,8 @@ export default function DashboardScreen() {
             </View>
             <Text style={[styles.menuLabel, { color: '#ef4444' }]}>Sign Out</Text>
           </TouchableOpacity>
-        </MotiView>
-      </MotiScrollView>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

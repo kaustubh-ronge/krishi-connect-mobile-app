@@ -1593,7 +1593,7 @@ const CountdownTimer = ({ expiryDate, onExpire }: { expiryDate: Date, onExpire?:
 export default function CartScreen() {
   const { isSignedIn } = useAuth();
   const { profile } = useUserStore();
-  const { items, loading, error, fetchCart, updateQuantity, removeFromCart } = useCartStore();
+  const { items, loading, isUpdating, error, fetchCart, updateQuantity, removeFromCart } = useCartStore();
   const [specialRequests, setSpecialRequests] = React.useState<any[]>([]);
   const [pendingOrders, setPendingOrders] = React.useState<any[]>([]);
   const [isSpecialDeliveryModalVisible, setSpecialDeliveryModalVisible] = React.useState(false);
@@ -2200,22 +2200,28 @@ export default function CartScreen() {
                   <TouchableOpacity
                     style={[
                       styles.checkoutBtn,
-                      selectedItemIds.length === 0 && styles.checkoutBtnDisabled,
+                      (selectedItemIds.length === 0 || isUpdating) && styles.checkoutBtnDisabled,
                     ]}
                     onPress={() => {
+                      if (isUpdating) return;
                       if (selectedItemIds.length === 0) {
                         Alert.alert('No Items Selected', 'Please select at least one item to checkout.');
                         return;
                       }
                       router.push('/checkout');
                     }}
-                    disabled={selectedItemIds.length === 0}
+                    disabled={selectedItemIds.length === 0 || isUpdating}
                     activeOpacity={0.88}
                   >
+                    {isUpdating ? (
+                      <ActivityIndicator color="#ffffff" size="small" style={{ marginRight: 8 }} />
+                    ) : null}
                     <Text style={styles.checkoutBtnText}>
                       {selectedItemIds.length === 0
                         ? 'Select Items to Checkout'
-                        : `Checkout ${selectedItemIds.length} Item${selectedItemIds.length !== 1 ? 's' : ''}`
+                        : isUpdating 
+                          ? 'Updating...' 
+                          : `Checkout ${selectedItemIds.length} Item${selectedItemIds.length !== 1 ? 's' : ''}`
                       }
                     </Text>
                     {selectedItemIds.length > 0 && (

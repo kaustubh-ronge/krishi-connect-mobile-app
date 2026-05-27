@@ -14,7 +14,6 @@ import {
   User as UserIcon, Mail, Phone, MapPin,
   ShoppingBag, Edit3, LogOut, ChevronRight,
 } from 'lucide-react-native';
-import { MotiView, MotiScrollView } from 'moti';
 
 const ROLE_LABELS: Record<string, string> = {
   farmer: 'Farmer',
@@ -79,7 +78,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <MotiScrollView
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -98,10 +97,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
           {/* Avatar */}
-          <MotiView
-            from={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', damping: 16 }}
+          <View
             style={styles.avatarWrapper}
           >
             <LinearGradient
@@ -111,7 +107,7 @@ export default function ProfileScreen() {
             >
               <Text style={styles.avatarText}>{displayName[0]?.toUpperCase() || 'U'}</Text>
             </LinearGradient>
-          </MotiView>
+          </View>
 
           <Text style={styles.heroName}>{displayName}</Text>
           <View style={styles.heroBadgeRow}>
@@ -127,10 +123,7 @@ export default function ProfileScreen() {
         </LinearGradient>
 
         {/* Info Card */}
-        <MotiView
-          from={{ opacity: 0, translateY: 20 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 500, delay: 100 }}
+        <View
           style={styles.infoCard}
         >
           <Text style={styles.cardSectionLabel}>Account Information</Text>
@@ -174,13 +167,10 @@ export default function ProfileScreen() {
               </View>
             </>
           ) : null}
-        </MotiView>
+        </View>
 
         {/* Menu Card */}
-        <MotiView
-          from={{ opacity: 0, translateY: 20 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 500, delay: 200 }}
+        <View
           style={styles.menuCard}
         >
           <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/edit-profile')}>
@@ -209,8 +199,8 @@ export default function ProfileScreen() {
             </View>
             <Text style={[styles.menuLabel, { color: '#ef4444' }]}>Sign Out</Text>
           </TouchableOpacity>
-        </MotiView>
-      </MotiScrollView>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

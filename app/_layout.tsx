@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import 'react-native-reanimated';
 import '../global.css';
 import { ClerkProvider, ClerkLoaded, useAuth } from '@clerk/clerk-expo';
@@ -85,21 +86,30 @@ function AuthGuard() {
 
     if (isSignedIn && !initialized) return;
 
-    // For signed-in users, check if they need onboarding ONLY IF they are on a protected route
-    // OR if we want to force them to onboard even to browse? The user said:
-    // "The onboarding/profile flow should NOT block normal browsing access."
-    // So we only force onboarding on protected routes!
-    if (isSignedIn && requiresAuth) {
+    if (isSignedIn) {
       const effectiveRole = role || 'none';
 
-      if (effectiveRole === 'none' && !inOnboarding) {
-        router.replace('/onboarding');
+      // 1. If they already have a role, NEVER allow them on onboarding screen.
+      if (effectiveRole !== 'none' && inOnboarding && !loading) {
+        if (!profile) {
+          router.replace('/edit-profile?onboarding=true');
+        } else {
+          router.replace('/(tabs)');
+        }
         return;
       }
 
-      if (effectiveRole !== 'none' && !loading && !profile && !inEditProfile && !inOnboarding) {
-        router.replace('/edit-profile?onboarding=true');
-        return;
+      // 2. If they are on a protected route, enforce onboarding flows
+      if (requiresAuth) {
+        if (effectiveRole === 'none' && !inOnboarding) {
+          router.replace('/onboarding');
+          return;
+        }
+
+        if (effectiveRole !== 'none' && !loading && !profile && !inEditProfile) {
+          router.replace('/edit-profile?onboarding=true');
+          return;
+        }
       }
     }
 
@@ -109,6 +119,21 @@ function AuthGuard() {
     }
   }, [isSignedIn, isLoaded, segments, role, profile, loading, initialized]);
 
+  return null;
+}
+
+function InitializationOverlay() {
+  const { isSignedIn, isLoaded } = useAuth();
+  const { initialized } = useUserStore();
+
+  if (!isLoaded || (isSignedIn && !initialized)) {
+    return (
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0f172a', zIndex: 99999, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#16a34a" />
+        <Text style={{ color: '#fff', marginTop: 16, fontWeight: '600', fontSize: 14 }}>Synchronizing profile...</Text>
+      </View>
+    );
+  }
   return null;
 }
 
@@ -140,6 +165,7 @@ export default function RootLayout() {
             <Stack.Screen name="sales" options={{ headerShown: false }} />
             <Stack.Screen name="+not-found" />
           </Stack>
+          <InitializationOverlay />
           <StatusBar style="light" backgroundColor="transparent" translucent={true} />
         </ThemeProvider>
       </ClerkLoaded>

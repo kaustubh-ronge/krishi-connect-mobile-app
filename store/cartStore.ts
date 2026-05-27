@@ -24,6 +24,7 @@ interface CartItem {
 interface CartState {
   items: CartItem[];
   loading: boolean;
+  isUpdating: boolean;
   error: string | null;
   // Always fetches fresh from server — call this on screen focus for cross-platform sync
   fetchCart: (api: any) => Promise<void>;
@@ -36,6 +37,7 @@ interface CartState {
 export const useCartStore = create<CartState>((set, get) => ({
   items: [],
   loading: false,
+  isUpdating: false,
   error: null,
 
   clearLocalCart: () => set({ items: [], error: null }),
@@ -55,7 +57,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
 
   addToCart: async (api, productId, quantity) => {
-    set({ error: null });
+    set({ error: null, isUpdating: true });
     try {
       await api.post('mobile/v1/cart', { productId, quantity });
       // Re-fetch to get fully populated items from server
@@ -63,10 +65,13 @@ export const useCartStore = create<CartState>((set, get) => ({
     } catch (err: any) {
       set({ error: err.message || 'Failed to add item to cart' });
       throw err;
+    } finally {
+      set({ isUpdating: false });
     }
   },
 
   updateQuantity: async (api, cartItemId, quantity) => {
+    set({ isUpdating: true });
     // Optimistic update
     const prevItems = get().items;
     set((state) => ({
@@ -79,10 +84,13 @@ export const useCartStore = create<CartState>((set, get) => ({
     } catch (err: any) {
       // Revert on error
       set({ items: prevItems, error: err.message });
+    } finally {
+      set({ isUpdating: false });
     }
   },
 
   removeFromCart: async (api, cartItemId) => {
+    set({ isUpdating: true });
     // Optimistic update
     const prevItems = get().items;
     set((state) => ({
@@ -93,6 +101,8 @@ export const useCartStore = create<CartState>((set, get) => ({
     } catch (err: any) {
       // Revert on error
       set({ items: prevItems, error: err.message });
+    } finally {
+      set({ isUpdating: false });
     }
   },
 }));
