@@ -12,29 +12,36 @@ import { calculateDistance } from '@/lib/apiHelpers';
 import { Plus, Minus, Trash2, Package, ShoppingCart, Clock, CheckCircle2, AlertCircle, Square, CheckSquare, Truck } from 'lucide-react-native';
 import { MotiView, ScrollView } from 'moti';
 import { useAuth } from '@clerk/clerk-expo';
+import SpecialDeliveryModal from '@/components/SpecialDeliveryModal';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 
+const computeTimeLeft = (expiryDate: Date): string => {
+  const now = new Date();
+  const diff = expiryDate.getTime() - now.getTime();
+  if (diff <= 0) return "Expired";
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+  const mins = Math.floor((diff / 1000 / 60) % 60);
+  const secs = Math.floor((diff / 1000) % 60);
+  return `${days}d : ${hours}h : ${mins}m : ${secs}s`;
+};
+
 const CountdownTimer = ({ expiryDate, onExpire }: { expiryDate: Date, onExpire?: () => void }) => {
-  const [timeLeft, setTimeLeft] = React.useState("");
+  // Initialize immediately so there is no blank flash on first render
+  const [timeLeft, setTimeLeft] = React.useState(() => computeTimeLeft(expiryDate));
 
   React.useEffect(() => {
+    // Update immediately in case expiryDate changed
+    setTimeLeft(computeTimeLeft(expiryDate));
+
     const interval = setInterval(() => {
-      const now = new Date();
-      const diff = expiryDate.getTime() - now.getTime();
-
-      if (diff <= 0) {
+      const value = computeTimeLeft(expiryDate);
+      setTimeLeft(value);
+      if (value === "Expired") {
         clearInterval(interval);
-        setTimeLeft("Expired");
         if (onExpire) onExpire();
-        return;
       }
-
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-      const mins = Math.floor((diff / 1000 / 60) % 60);
-      const secs = Math.floor((diff / 1000) % 60);
-      setTimeLeft(`${days}d : ${hours}h : ${mins}m : ${secs}s`);
     }, 1000);
 
     return () => clearInterval(interval);
@@ -49,8 +56,21 @@ export default function CartScreen() {
   const { items, loading, error, fetchCart, updateQuantity, removeFromCart } = useCartStore();
   const [specialRequests, setSpecialRequests] = React.useState<any[]>([]);
   const [pendingOrders, setPendingOrders] = React.useState<any[]>([]);
+  const [isSpecialDeliveryModalVisible, setSpecialDeliveryModalVisible] = React.useState(false);
+  const [activeProductForMediation, setActiveProductForMediation] = React.useState<any>(null);
   const api = useApiClient();
   const router = useRouter();
+
+  const deleteRequest = async (id: string) => {
+    try {
+      const res = await api.delete(`mobile/v1/special-delivery?id=${id}`);
+      if (res?.success) {
+        api.get('mobile/v1/special-delivery').then((res: any) => res?.success && setSpecialRequests(res.data || []));
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to cancel request');
+    }
+  };
 
   const [selectedItemIds, setSelectedItemIds] = React.useState<string[]>([]);
   const [unserviceableIds, setUnserviceableIds] = React.useState<string[]>([]);
@@ -61,11 +81,12 @@ export default function CartScreen() {
     useCallback(() => {
       if (isSignedIn) {
         fetchCart(api);
-        api.get('mobile/v1/special-delivery').then(res => {
-          if (res.data?.success) setSpecialRequests(res.data.data || []);
+        api.get('mobile/v1/special-delivery').then((res: any) => {
+          // api client returns the JSON body directly: { success, data }
+          if (res?.success) setSpecialRequests(res.data || []);
         }).catch(() => { });
-        api.get('mobile/v1/orders/pending').then(res => {
-          if (res.data?.success) setPendingOrders(res.data.data || []);
+        api.get('mobile/v1/orders/pending').then((res: any) => {
+          if (res?.success) setPendingOrders(res.data || []);
         }).catch(() => { });
       }
     }, [isSignedIn])
@@ -83,19 +104,19 @@ export default function CartScreen() {
           // Fetch fee for selected items
           if (selectedItemIds.length > 0) {
             const res = await api.get(`mobile/v1/orders/fee?lat=${profile.lat}&lng=${profile.lng}&itemIds=${selectedItemIdsStr}`);
-            if (res.data?.success) setDynamicFeeData(res.data);
+            if (res?.success) setDynamicFeeData(res);
           } else {
             setDynamicFeeData(null);
           }
 
           // Fetch unserviceable status for ALL items so UI can render correctly
           const allRes = await api.get(`mobile/v1/orders/fee?lat=${profile.lat}&lng=${profile.lng}&itemIds=${itemIdsStr}`);
-          if (allRes.data?.success) {
-            setUnserviceableIds(allRes.data.unserviceableIds || []);
+          if (allRes?.success) {
+            setUnserviceableIds(allRes.unserviceableIds || []);
             
             // Auto-select valid items, auto-deselect invalid items
             // (Only run this logic once on initial load or when items change significantly to avoid overriding user's manual selections)
-            const outOfRangeIds = allRes.data.unserviceableIds || [];
+            const outOfRangeIds = allRes.unserviceableIds || [];
             
             setSelectedItemIds(prev => {
                 const prevSet = new Set(prev);
@@ -150,15 +171,25 @@ export default function CartScreen() {
   const renderItem = ({ item, index }: { item: any; index: number }) => {
     const imageUrl = item.product.images?.[0];
     const isOutOfRange = unserviceableIds.includes(item.id);
-    const approval = specialRequests.find(r => r.productId === item.product.id && r.status === 'APPROVED');
-    const isApproved = !!approval;
-    const isQuantityExceeded = isApproved && item.quantity > approval.quantity;
+    const activeRequest = specialRequests.find((r: any) => r.productId === item.product.id && !r.isConsumed);
+    const isApproved = activeRequest?.status === 'APPROVED';
+    const isPendingReq = activeRequest?.status === 'PENDING';
+    const isRejected = activeRequest?.status === 'REJECTED';
+    const isQuantityExceeded = isApproved && item.quantity > activeRequest.quantity;
     
     // An item is selectable if it's within range OR (it's approved AND hasn't exceeded approved quantity)
-    const isSelectable = !(isOutOfRange && !isApproved) && !isQuantityExceeded;
+    const isSelectable = !(isOutOfRange && !isApproved) && !isQuantityExceeded && !isRejected;
     
     const isSelected = selectedItemIds.includes(item.id);
     const isGrayscaled = !isSelectable;
+
+    // Quantity control locks — match web handleUpdateQty logic
+    const minQty = item.product.minOrderQuantity || 1;
+    const availableStock = item.product.availableStock ?? Infinity;
+    const atApprovalLimit = isApproved && item.quantity >= activeRequest.quantity;
+    const atStockLimit = item.quantity >= availableStock;
+    const incrementLocked = atApprovalLimit || atStockLimit;
+    const decrementLocked = item.quantity <= minQty;
 
     return (
       <MotiView
@@ -190,46 +221,67 @@ export default function CartScreen() {
           </View>
 
           <Text className="text-base font-extrabold text-primary-dark mt-1">₹{(item.quantity * item.product.pricePerUnit).toFixed(2)}</Text>
-          {approval?.negotiatedFee != null && (
+          {activeRequest?.negotiatedFee != null && (
              <View className="flex-row items-center mt-1">
                <Truck color="#d97706" size={12} className="mr-1" />
-               <Text className="text-xs font-bold text-amber-600">+ ₹{(approval.negotiatedFee * item.quantity).toFixed(2)} delivery</Text>
+               <Text className="text-xs font-bold text-amber-600">+ ₹{(activeRequest.negotiatedFee * item.quantity).toFixed(2)} delivery</Text>
              </View>
           )}
           {isApproved && (
-            <View className="flex-row items-center mt-1 bg-emerald-50 px-2 py-1 rounded-md self-start border border-emerald-100">
-              <Clock color="#059669" size={12} className="mr-1" />
-              <CountdownTimer 
-                expiryDate={new Date(new Date(approval.approvedAt || approval.updatedAt).getTime() + 10 * 24 * 60 * 60 * 1000)}
-                onExpire={() => api.get('mobile/v1/special-delivery').then(res => res.data?.success && setSpecialRequests(res.data.data || []))}
-              />
+            <View className="mt-2 bg-emerald-50 border border-emerald-100 rounded-xl p-2">
+              <View className="flex-row items-center justify-between mb-1">
+                <View className="flex-row items-center">
+                  <Truck color="#059669" size={11} />
+                  <Text className="text-[10px] font-black uppercase text-emerald-800 ml-1">Special Delivery Approved</Text>
+                </View>
+                <View className="bg-emerald-100 px-2 py-0.5 rounded">
+                  <Text className="text-[9px] font-black text-emerald-700 uppercase">Limit: {activeRequest.quantity} {item.product.unit}</Text>
+                </View>
+              </View>
+              <View className="flex-row items-center bg-white px-2 py-1 rounded-lg border border-emerald-100 self-start">
+                <Clock color="#059669" size={10} />
+                <Text className="text-[10px] font-black text-emerald-700 ml-1">Expires: </Text>
+                <CountdownTimer 
+                  expiryDate={new Date(new Date(activeRequest.approvedAt || activeRequest.updatedAt).getTime() + 10 * 24 * 60 * 60 * 1000)}
+                  onExpire={() => api.get('mobile/v1/special-delivery').then((res: any) => res?.success && setSpecialRequests(res.data || []))}
+                />
+              </View>
+              <TouchableOpacity 
+                className="mt-2 bg-white px-3 py-1.5 rounded-lg border border-emerald-100 self-start"
+                onPress={() => deleteRequest(activeRequest.id)}
+              >
+                <Text className="text-emerald-700 font-bold text-[10px] uppercase">Cancel & Re-request</Text>
+              </TouchableOpacity>
             </View>
           )}
 
           <View className="flex-row items-center mt-2">
             <TouchableOpacity
-              className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center border border-gray-200"
-              onPress={() => item.quantity > 1
-                ? updateQuantity(api, item.id, item.quantity - 1)
-                : handleRemove(item.id, item.product.productName)
-              }
+              className={`w-8 h-8 rounded-full items-center justify-center border ${
+                decrementLocked ? 'bg-gray-50 border-gray-100 opacity-40' : 'bg-gray-100 border-gray-200'
+              }`}
+              disabled={decrementLocked}
+              onPress={() => {
+                if (item.quantity > minQty) {
+                  updateQuantity(api, item.id, item.quantity - 1);
+                } else {
+                  handleRemove(item.id, item.product.productName);
+                }
+              }}
             >
-              <Minus size={16} color="#374151" />
+              <Minus size={16} color={decrementLocked ? '#d1d5db' : '#374151'} />
             </TouchableOpacity>
 
             <Text className="text-base font-bold mx-4 text-gray-800">{item.quantity}</Text>
 
             <TouchableOpacity
-              className={`w-8 h-8 rounded-full items-center justify-center border ${isApproved && item.quantity >= approval.quantity ? 'bg-gray-50 border-gray-100 opacity-50' : 'bg-gray-100 border-gray-200'}`}
-              onPress={() => {
-                if (isApproved && item.quantity >= approval.quantity) {
-                  Alert.alert('Limit Reached', `You are approved for a maximum of ${approval.quantity} units.`);
-                  return;
-                }
-                updateQuantity(api, item.id, item.quantity + 1);
-              }}
+              className={`w-8 h-8 rounded-full items-center justify-center border ${
+                incrementLocked ? 'bg-gray-50 border-gray-100 opacity-40' : 'bg-gray-100 border-gray-200'
+              }`}
+              disabled={incrementLocked}
+              onPress={() => updateQuantity(api, item.id, item.quantity + 1)}
             >
-              <Plus size={16} color="#374151" />
+              <Plus size={16} color={incrementLocked ? '#d1d5db' : '#374151'} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -239,8 +291,65 @@ export default function CartScreen() {
               <Trash2 size={20} color="#ef4444" />
             </TouchableOpacity>
           </View>
-          {isGrayscaled && (
-             <Text className="text-[10px] text-red-500 font-bold uppercase mt-2">Requires Special Logistics</Text>
+          {isPendingReq && (
+            <View className="mt-3 bg-amber-50 border border-amber-100 rounded-xl p-3">
+              <View className="flex-row items-center justify-between mb-2">
+                <View className="flex-row items-center">
+                  <Clock color="#d97706" size={14} />
+                  <Text className="text-xs font-bold text-amber-800 ml-2">Mediation in Progress</Text>
+                </View>
+                <View className="bg-amber-100 px-2 py-1 rounded">
+                  <Text className="text-[10px] font-black text-amber-700 uppercase">Pending</Text>
+                </View>
+              </View>
+              <Text className="text-[11px] text-amber-700 mb-2 leading-tight">We are negotiating delivery with logistics partners. Please check back later.</Text>
+              <TouchableOpacity 
+                className="bg-white px-3 py-2 rounded-lg border border-amber-200 self-start"
+                onPress={() => deleteRequest(activeRequest.id)}
+              >
+                <Text className="text-amber-700 font-bold text-xs">Cancel Request</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {isRejected && (
+            <View className="mt-3 bg-red-50 border border-red-100 rounded-xl p-3">
+              <View className="flex-row items-center justify-between mb-2">
+                <View className="flex-row items-center">
+                  <AlertCircle color="#dc2626" size={14} />
+                  <Text className="text-xs font-bold text-red-800 ml-2">Mediation Rejected</Text>
+                </View>
+                <View className="bg-red-100 px-2 py-1 rounded">
+                  <Text className="text-[10px] font-black text-red-700 uppercase">Locked</Text>
+                </View>
+              </View>
+              <Text className="text-[11px] text-red-700 mb-2 leading-tight">Delivery is unavailable for this quantity/location. Try modifying your order or checking other sellers.</Text>
+              <TouchableOpacity 
+                className="bg-white px-3 py-2 rounded-lg border border-red-200 self-start"
+                onPress={() => deleteRequest(activeRequest.id)}
+              >
+                <Text className="text-red-700 font-bold text-xs">Clear & Retry</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {isOutOfRange && !activeRequest && (
+            <View className="mt-3 bg-blue-50 border border-blue-100 rounded-xl p-3">
+              <View className="flex-row items-center mb-1">
+                <Truck color="#2563eb" size={14} />
+                <Text className="text-xs font-bold text-blue-800 ml-2">Out of Delivery Range</Text>
+              </View>
+              <Text className="text-[11px] text-blue-700 mb-2 leading-tight">This seller is outside our standard radius. Request special delivery to proceed.</Text>
+              <TouchableOpacity 
+                className="bg-blue-600 px-3 py-2 rounded-lg self-start mt-1"
+                onPress={() => {
+                  setActiveProductForMediation(item.product);
+                  setSpecialDeliveryModalVisible(true);
+                }}
+              >
+                <Text className="text-white font-bold text-xs">Request Mediation</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
       </MotiView>
@@ -485,7 +594,7 @@ export default function CartScreen() {
                               onExpire={() => {
                                 // Just re-fetch pending orders which might be expired on backend, 
                                 // or we could filter it out locally if we want immediately
-                                api.get('mobile/v1/orders/pending').then(res => res.data?.success && setPendingOrders(res.data.data || []));
+                                api.get('mobile/v1/orders/pending').then((res: any) => res?.success && setPendingOrders(res.data || []));
                               }} 
                             />
                           </View>
@@ -514,7 +623,7 @@ export default function CartScreen() {
                                 { text: 'Yes, Cancel', style: 'destructive', onPress: async () => {
                                   try {
                                     await api.post('mobile/v1/orders', { action: 'cancelPending', orderId: order.id });
-                                    api.get('mobile/v1/orders/pending').then(res => res.data?.success && setPendingOrders(res.data.data || []));
+                                    api.get('mobile/v1/orders/pending').then((res: any) => res?.success && setPendingOrders(res.data || []));
                                   } catch (e) {}
                                 }}
                               ])
@@ -539,6 +648,15 @@ export default function CartScreen() {
           )}
         </ScrollView>
       )}
+
+      <SpecialDeliveryModal
+        visible={isSpecialDeliveryModalVisible}
+        onClose={() => setSpecialDeliveryModalVisible(false)}
+        product={activeProductForMediation}
+        onSuccess={() => {
+          api.get('mobile/v1/special-delivery').then((res: any) => res?.success && setSpecialRequests(res.data || []));
+        }}
+      />
     </SafeAreaView>
   );
 }

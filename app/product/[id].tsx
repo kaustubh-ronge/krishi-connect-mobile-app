@@ -20,7 +20,7 @@ export default function ProductDetailScreen() {
   const router = useRouter();
   const { isSignedIn } = useAuth();
   const { profile, role } = useUserStore();
-  const { items: cartItems, addToCart, loading: cartLoading } = useCartStore();
+  const { items: cartItems, addToCart, loading: cartLoading, fetchCart } = useCartStore();
 
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -40,8 +40,12 @@ export default function ProductDetailScreen() {
       try {
         const [res, reqRes] = await Promise.all([
           api.get(`mobile/v1/products?id=${productId}`),
-          isSignedIn ? api.get('mobile/v1/special-delivery').catch(() => ({ data: { data: [] } })) : { data: { data: [] } }
+          isSignedIn ? api.get('mobile/v1/special-delivery').catch(() => ({ success: false, data: [] })) : { success: false, data: [] }
         ]);
+
+        if (isSignedIn) {
+          await fetchCart(api).catch(() => {});
+        }
         
         const p = res.data ?? null;
         setProduct(p);
@@ -49,8 +53,8 @@ export default function ProductDetailScreen() {
           setQuantity(Math.max(1, Number(p.minOrderQuantity) || 1));
         }
         
-        if (reqRes.data?.success) {
-          setSpecialRequests(reqRes.data.data || []);
+        if (reqRes?.success) {
+          setSpecialRequests(reqRes.data || []);
         }
 
         if (p && profile?.lat && profile?.lng) {
@@ -76,7 +80,7 @@ export default function ProductDetailScreen() {
   const reloadRequests = async () => {
     try {
       const res = await api.get('mobile/v1/special-delivery');
-      if (res.data?.success) setSpecialRequests(res.data.data || []);
+      if (res?.success) setSpecialRequests(res.data || []);
     } catch (e) {}
   };
 
@@ -98,7 +102,7 @@ export default function ProductDetailScreen() {
       return;
     }
 
-    if (isOutOfRange && isBypassed) {
+    if (isBypassed) {
       if (quantity > dynamicMaxQty) {
         Alert.alert('Out of Range Limit Exceeded', `You can only add ${dynamicMaxQty} more unit(s) based on your approved request.`);
         return;
@@ -159,18 +163,17 @@ export default function ProductDetailScreen() {
   const minQty = Math.max(1, Number(product?.minOrderQuantity) || 1);
   const maxQty = Math.min(Number(product?.availableStock) || 0, 100);
   
-  const specialRequest = specialRequests.find((r: any) => r.productId === product.id);
-  const hasRequested = !!specialRequest;
-  const isBypassed = specialRequest?.status === 'APPROVED';
-  const requestRecordExists = specialRequest?.status === 'PENDING';
+  const specialRequest = specialRequests.find((r: any) => r.productId === product.id && r.status === 'APPROVED' && !r.isConsumed);
+  const isBypassed = !!specialRequest;
+  const requestRecordExists = specialRequests.some((r: any) => r.productId === product.id && r.status === 'PENDING');
   
   const canAddToCart = !isOutOfRange || isBypassed;
   
-  // Calculate quantity limits
+  // Calculate quantity limits exactly matching web
   const currentCartQuantity = cartItems.find((it: any) => it.productId === product.id)?.quantity || 0;
   let dynamicMaxQty = maxQty;
-  if (isOutOfRange && isBypassed) {
-    dynamicMaxQty = Math.max(0, (specialRequest?.quantity || 0) - currentCartQuantity);
+  if (isBypassed) {
+    dynamicMaxQty = Math.min(maxQty, Math.max(0, (specialRequest?.quantity || 0) - currentCartQuantity));
   }
 
   // Handle Grayscale state
@@ -278,13 +281,13 @@ export default function ProductDetailScreen() {
             <Text className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded self-start mt-2">Minimum order: {minQty} {product.unit}</Text>
           )}
 
-          {isOutOfRange && isBypassed && dynamicMaxQty > 0 && (
+          {isBypassed && dynamicMaxQty > 0 && (
             <View className="mt-4 p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex-row items-center">
               <CheckCircle2 color="#059669" size={16} className="mr-2" />
               <Text className="text-sm text-emerald-800 flex-1">Approved to buy up to {specialRequest.quantity} units. You can add {dynamicMaxQty} more.</Text>
             </View>
           )}
-          {isOutOfRange && isBypassed && dynamicMaxQty <= 0 && (
+          {isBypassed && dynamicMaxQty <= 0 && (
             <View className="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-100 flex-row items-center">
               <AlertCircle color="#d97706" size={16} className="mr-2" />
               <Text className="text-sm text-amber-800 flex-1">You have reached the approved limit ({specialRequest.quantity} {product.unit}) in your cart.</Text>
@@ -321,18 +324,18 @@ export default function ProductDetailScreen() {
         ) : (
           <TouchableOpacity
             className={`flex-2 flex-row items-center justify-center px-6 py-4 rounded-2xl ${
-              addingToCart || (isOutOfRange && isBypassed && dynamicMaxQty <= 0) || maxQty === 0 || isFeeLoading ? "opacity-70" : ""
+              addingToCart || (isBypassed && dynamicMaxQty <= 0) || maxQty === 0 || isFeeLoading ? "opacity-70" : ""
             } ${
               !isSignedIn || !role || role === 'none' || !profile 
                 ? "bg-blue-600" 
                 : (!profile?.lat || !profile?.lng) 
                   ? "bg-amber-500" 
-                  : (isOutOfRange && isBypassed && dynamicMaxQty <= 0) || maxQty === 0
+                  : (isBypassed && dynamicMaxQty <= 0) || maxQty === 0
                     ? "bg-gray-400"
                   : "bg-primary"
             }`}
             onPress={handleAddToCart}
-            disabled={addingToCart || isFeeLoading || (isOutOfRange && isBypassed && dynamicMaxQty <= 0) || maxQty === 0}
+            disabled={addingToCart || isFeeLoading || (isBypassed && dynamicMaxQty <= 0) || maxQty === 0}
           >
             {addingToCart || isFeeLoading ? (
               <ActivityIndicator color="#fff" />
