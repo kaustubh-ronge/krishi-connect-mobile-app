@@ -131,7 +131,9 @@ export default function MarketplaceScreen() {
             <Text className="text-xs text-gray-400 mb-2" numberOfLines={1}>By {sellerName}</Text>
 
             <View className="bg-green-50 px-2 py-1 rounded border border-green-100 self-start">
-              <Text className="text-[10px] text-green-700 font-bold">{item.availableStock} {item.unit} avail.</Text>
+              <Text className="text-[10px] text-green-700 font-bold">
+                {item.availableSellableStock !== undefined ? item.availableSellableStock : item.availableStock} {item.unit} avail.
+              </Text>
             </View>
           </View>
         </TouchableOpacity>

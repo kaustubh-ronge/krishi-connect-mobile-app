@@ -49,21 +49,26 @@ export default function ProductDetailScreen() {
         
         const p = res.data ?? null;
         setProduct(p);
-        if (p?.minOrderQuantity) {
-          setQuantity(Math.max(1, Number(p.minOrderQuantity) || 1));
-        }
+        
+        let initialMinQty = Math.max(1, Number(p?.minOrderQuantity) || 1);
         
         if (reqRes?.success) {
           setSpecialRequests(reqRes.data || []);
+          const hasApproval = reqRes.data?.some((r: any) => r.productId === p?.id && r.status === 'APPROVED' && !r.isConsumed);
+          if (hasApproval) initialMinQty = 1;
+        }
+
+        if (p?.minOrderQuantity || reqRes?.success) {
+          setQuantity(initialMinQty);
         }
 
         if (p && profile?.lat && profile?.lng) {
           setIsFeeLoading(true);
           const feeRes = await api.get(`mobile/v1/orders/fee?lat=${profile.lat}&lng=${profile.lng}&productId=${p.id}`);
-          if (feeRes.data?.success) {
-            setDynamicFee(feeRes.data.fee);
-            setIsOutOfRange(feeRes.data.isOutOfRange);
-            setIsLongDistance(feeRes.data.isLongDistance);
+          if (feeRes?.success) {
+            setDynamicFee(feeRes.fee);
+            setIsOutOfRange(feeRes.isOutOfRange);
+            setIsLongDistance(feeRes.isLongDistance);
           }
           setIsFeeLoading(false);
         }
@@ -160,12 +165,19 @@ export default function ProductDetailScreen() {
   const sellerName = seller?.name || seller?.companyName || 'Unknown Seller';
   const location = formatLocation(seller);
   const images = product.images || [];
-  const minQty = Math.max(1, Number(product?.minOrderQuantity) || 1);
-  const maxQty = Math.min(Number(product?.availableStock) || 0, 100);
   
   const specialRequest = specialRequests.find((r: any) => r.productId === product.id && r.status === 'APPROVED' && !r.isConsumed);
   const isBypassed = !!specialRequest;
   const requestRecordExists = specialRequests.some((r: any) => r.productId === product.id && r.status === 'PENDING');
+  
+  const minQty = isBypassed ? 1 : Math.max(1, Number(product?.minOrderQuantity) || 1);
+  
+  // Inventory Reservation Logic
+  const physicalStock = Number(product?.availableStock) || 0;
+  const sellableStock = product?.availableSellableStock !== undefined ? Number(product.availableSellableStock) : physicalStock;
+  
+  // Normal buyers see sellable stock. Approved buyers can access up to physical stock (capped by their approval).
+  const maxQty = isBypassed ? physicalStock : sellableStock;
   
   const canAddToCart = !isOutOfRange || isBypassed;
   
@@ -231,7 +243,7 @@ export default function ProductDetailScreen() {
           {/* Stock & Delivery */}
           <View className="flex-row flex-wrap gap-2 mb-6">
             <View className="flex-row items-center bg-gray-50 px-3 py-2 rounded-xl border border-gray-100">
-              <Text className="text-sm font-semibold text-gray-700">📦 {product.availableStock} {product.unit} available</Text>
+              <Text className="text-sm font-semibold text-gray-700">📦 {sellableStock} {product.unit} available</Text>
             </View>
             <View className="flex-row items-center bg-gray-50 px-3 py-2 rounded-xl border border-gray-100">
               <Text className="text-sm font-semibold text-gray-700">

@@ -100,7 +100,7 @@ export default function CartScreen() {
           // Only fetch fee for selected items to match Web behavior!
           const itemIdsStr = items.map((it: any) => it.id).join(',');
           const selectedItemIdsStr = selectedItemIds.join(',');
-          
+
           // Fetch fee for selected items
           if (selectedItemIds.length > 0) {
             const res = await api.get(`mobile/v1/orders/fee?lat=${profile.lat}&lng=${profile.lng}&itemIds=${selectedItemIdsStr}`);
@@ -113,21 +113,21 @@ export default function CartScreen() {
           const allRes = await api.get(`mobile/v1/orders/fee?lat=${profile.lat}&lng=${profile.lng}&itemIds=${itemIdsStr}`);
           if (allRes?.success) {
             setUnserviceableIds(allRes.unserviceableIds || []);
-            
+
             // Auto-select valid items, auto-deselect invalid items
             // (Only run this logic once on initial load or when items change significantly to avoid overriding user's manual selections)
             const outOfRangeIds = allRes.unserviceableIds || [];
-            
+
             setSelectedItemIds(prev => {
-                const prevSet = new Set(prev);
-                const validItemIds = items.filter(it => {
-                    const isOutOfRange = outOfRangeIds.includes(it.id);
-                    const isApproved = specialRequests.some(r => r.productId === it.product.id && r.status === 'APPROVED');
-                    return !(isOutOfRange && !isApproved);
-                }).map(it => it.id);
-                
-                // If this is the first load (prev empty) or we just want to ensure only valid items are selected
-                return validItemIds.filter(id => prev.length === 0 || prevSet.has(id));
+              const prevSet = new Set(prev);
+              const validItemIds = items.filter(it => {
+                const isOutOfRange = outOfRangeIds.includes(it.id);
+                const isApproved = specialRequests.some(r => r.productId === it.product.id && r.status === 'APPROVED');
+                return !(isOutOfRange && !isApproved);
+              }).map(it => it.id);
+
+              // If this is the first load (prev empty) or we just want to ensure only valid items are selected
+              return validItemIds.filter(id => prev.length === 0 || prevSet.has(id));
             });
           }
         } catch (err) {
@@ -146,7 +146,7 @@ export default function CartScreen() {
       Alert.alert('Unavailable', 'This item is out of delivery range. Please request special delivery approval first.');
       return;
     }
-    setSelectedItemIds(prev => 
+    setSelectedItemIds(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   };
@@ -176,15 +176,16 @@ export default function CartScreen() {
     const isPendingReq = activeRequest?.status === 'PENDING';
     const isRejected = activeRequest?.status === 'REJECTED';
     const isQuantityExceeded = isApproved && item.quantity > activeRequest.quantity;
-    
+
     // An item is selectable if it's within range OR (it's approved AND hasn't exceeded approved quantity)
     const isSelectable = !(isOutOfRange && !isApproved) && !isQuantityExceeded && !isRejected;
-    
+
     const isSelected = selectedItemIds.includes(item.id);
     const isGrayscaled = !isSelectable;
 
     // Quantity control locks — match web handleUpdateQty logic
-    const minQty = item.product.minOrderQuantity || 1;
+    // Allow lowering quantity up to 1 if approved for out-of-range mediation
+    const minQty = isApproved ? 1 : (item.product.minOrderQuantity || 1);
     const availableStock = item.product.availableStock ?? Infinity;
     const atApprovalLimit = isApproved && item.quantity >= activeRequest.quantity;
     const atStockLimit = item.quantity >= availableStock;
@@ -199,7 +200,7 @@ export default function CartScreen() {
         className={`flex-row bg-white rounded-3xl p-3 mb-4 shadow-sm border ${isSelected ? 'border-primary' : 'border-gray-100'}`}
         style={{ opacity: isGrayscaled ? 0.6 : 1 }}
       >
-        <TouchableOpacity 
+        <TouchableOpacity
           className="justify-center px-2"
           onPress={() => toggleSelect(item.id, isSelectable)}
         >
@@ -222,10 +223,10 @@ export default function CartScreen() {
 
           <Text className="text-base font-extrabold text-primary-dark mt-1">₹{(item.quantity * item.product.pricePerUnit).toFixed(2)}</Text>
           {activeRequest?.negotiatedFee != null && (
-             <View className="flex-row items-center mt-1">
-               <Truck color="#d97706" size={12} className="mr-1" />
-               <Text className="text-xs font-bold text-amber-600">+ ₹{(activeRequest.negotiatedFee * item.quantity).toFixed(2)} delivery</Text>
-             </View>
+            <View className="flex-row items-center mt-1">
+              <Truck color="#d97706" size={12} className="mr-1" />
+              <Text className="text-xs font-bold text-amber-600">+ ₹{(activeRequest.negotiatedFee * item.quantity).toFixed(2)} delivery</Text>
+            </View>
           )}
           {isApproved && (
             <View className="mt-2 bg-emerald-50 border border-emerald-100 rounded-xl p-2">
@@ -241,12 +242,12 @@ export default function CartScreen() {
               <View className="flex-row items-center bg-white px-2 py-1 rounded-lg border border-emerald-100 self-start">
                 <Clock color="#059669" size={10} />
                 <Text className="text-[10px] font-black text-emerald-700 ml-1">Expires: </Text>
-                <CountdownTimer 
+                <CountdownTimer
                   expiryDate={new Date(new Date(activeRequest.approvedAt || activeRequest.updatedAt).getTime() + 10 * 24 * 60 * 60 * 1000)}
                   onExpire={() => api.get('mobile/v1/special-delivery').then((res: any) => res?.success && setSpecialRequests(res.data || []))}
                 />
               </View>
-              <TouchableOpacity 
+              <TouchableOpacity
                 className="mt-2 bg-white px-3 py-1.5 rounded-lg border border-emerald-100 self-start"
                 onPress={() => deleteRequest(activeRequest.id)}
               >
@@ -257,9 +258,8 @@ export default function CartScreen() {
 
           <View className="flex-row items-center mt-2">
             <TouchableOpacity
-              className={`w-8 h-8 rounded-full items-center justify-center border ${
-                decrementLocked ? 'bg-gray-50 border-gray-100 opacity-40' : 'bg-gray-100 border-gray-200'
-              }`}
+              className={`w-8 h-8 rounded-full items-center justify-center border ${decrementLocked ? 'bg-gray-50 border-gray-100 opacity-40' : 'bg-gray-100 border-gray-200'
+                }`}
               disabled={decrementLocked}
               onPress={() => {
                 if (item.quantity > minQty) {
@@ -275,9 +275,8 @@ export default function CartScreen() {
             <Text className="text-base font-bold mx-4 text-gray-800">{item.quantity}</Text>
 
             <TouchableOpacity
-              className={`w-8 h-8 rounded-full items-center justify-center border ${
-                incrementLocked ? 'bg-gray-50 border-gray-100 opacity-40' : 'bg-gray-100 border-gray-200'
-              }`}
+              className={`w-8 h-8 rounded-full items-center justify-center border ${incrementLocked ? 'bg-gray-50 border-gray-100 opacity-40' : 'bg-gray-100 border-gray-200'
+                }`}
               disabled={incrementLocked}
               onPress={() => updateQuantity(api, item.id, item.quantity + 1)}
             >
@@ -303,7 +302,7 @@ export default function CartScreen() {
                 </View>
               </View>
               <Text className="text-[11px] text-amber-700 mb-2 leading-tight">We are negotiating delivery with logistics partners. Please check back later.</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 className="bg-white px-3 py-2 rounded-lg border border-amber-200 self-start"
                 onPress={() => deleteRequest(activeRequest.id)}
               >
@@ -324,7 +323,7 @@ export default function CartScreen() {
                 </View>
               </View>
               <Text className="text-[11px] text-red-700 mb-2 leading-tight">Delivery is unavailable for this quantity/location. Try modifying your order or checking other sellers.</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 className="bg-white px-3 py-2 rounded-lg border border-red-200 self-start"
                 onPress={() => deleteRequest(activeRequest.id)}
               >
@@ -340,7 +339,7 @@ export default function CartScreen() {
                 <Text className="text-xs font-bold text-blue-800 ml-2">Out of Delivery Range</Text>
               </View>
               <Text className="text-[11px] text-blue-700 mb-2 leading-tight">This seller is outside our standard radius. Request special delivery to proceed.</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 className="bg-blue-600 px-3 py-2 rounded-lg self-start mt-1"
                 onPress={() => {
                   setActiveProductForMediation(item.product);
@@ -399,22 +398,22 @@ export default function CartScreen() {
       };
       const response = await api.post('mobile/v1/orders', payload);
       if (response.data?.success && response.data?.data?.razorpayOrderId) {
-          const razorpayOrderId = response.data.data.razorpayOrderId;
-          const deepLink = Linking.createURL('payment-callback');
-          const checkoutUrl = `${process.env.EXPO_PUBLIC_APP_URL?.replace('/api/', '') || 'https://krishi-web-for-mobile-building.vercel.app'}/mobile-checkout?orderId=${orderId}&razorpayOrderId=${razorpayOrderId}&redirectUrl=${encodeURIComponent(deepLink)}`;
+        const razorpayOrderId = response.data.data.razorpayOrderId;
+        const deepLink = Linking.createURL('payment-callback');
+        const checkoutUrl = `${process.env.EXPO_PUBLIC_APP_URL?.replace('/api/', '') || 'https://krishi-web-for-mobile-building.vercel.app'}/mobile-checkout?orderId=${orderId}&razorpayOrderId=${razorpayOrderId}&redirectUrl=${encodeURIComponent(deepLink)}`;
 
-          const browserResult = await WebBrowser.openAuthSessionAsync(checkoutUrl, deepLink);
-          if (browserResult.type === 'success') {
-            if (browserResult.url.includes('status=success')) {
-              Alert.alert('Payment Successful ✓', 'Your payment was completed and order resumed!', [
-                { text: 'View Orders', onPress: () => { fetchCart(api); router.replace('/orders'); } },
-              ]);
-            } else {
-              Alert.alert('Payment Cancelled', 'Your payment was not completed.');
-            }
+        const browserResult = await WebBrowser.openAuthSessionAsync(checkoutUrl, deepLink);
+        if (browserResult.type === 'success') {
+          if (browserResult.url.includes('status=success')) {
+            Alert.alert('Payment Successful ✓', 'Your payment was completed and order resumed!', [
+              { text: 'View Orders', onPress: () => { fetchCart(api); router.replace('/orders'); } },
+            ]);
+          } else {
+            Alert.alert('Payment Cancelled', 'Your payment was not completed.');
           }
+        }
       } else {
-         Alert.alert('Error', response.data?.error || 'Failed to resume order.');
+        Alert.alert('Error', response.data?.error || 'Failed to resume order.');
       }
     } catch (e: any) {
       Alert.alert('Error', e.message || 'An error occurred while resuming.');
@@ -433,13 +432,13 @@ export default function CartScreen() {
       </View>
 
       <View className="bg-white border-b border-gray-100 flex-row">
-        <TouchableOpacity 
+        <TouchableOpacity
           className={`flex-1 py-3 items-center border-b-2 ${activeTab === 'CART' ? 'border-primary' : 'border-transparent'}`}
           onPress={() => setActiveTab('CART')}
         >
           <Text className={`font-bold ${activeTab === 'CART' ? 'text-primary' : 'text-gray-500'}`}>Current Cart</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+        <TouchableOpacity
           className={`flex-1 py-3 items-center border-b-2 ${activeTab === 'RECOVERIES' ? 'border-primary' : 'border-transparent'}`}
           onPress={() => setActiveTab('RECOVERIES')}
         >
@@ -589,17 +588,17 @@ export default function CartScreen() {
                           </View>
                           <View className="bg-amber-50 px-2 py-1 rounded items-end">
                             <Text className="text-xs font-bold text-amber-600 mb-1">PENDING</Text>
-                            <CountdownTimer 
-                              expiryDate={expiryDate} 
+                            <CountdownTimer
+                              expiryDate={expiryDate}
                               onExpire={() => {
                                 // Just re-fetch pending orders which might be expired on backend, 
                                 // or we could filter it out locally if we want immediately
                                 api.get('mobile/v1/orders/pending').then((res: any) => res?.success && setPendingOrders(res.data || []));
-                              }} 
+                              }}
                             />
                           </View>
                         </View>
-                        
+
                         <View className="mb-4">
                           {order.items?.map((item: any) => (
                             <View key={item.id} className="flex-row items-center mb-2">
@@ -615,23 +614,25 @@ export default function CartScreen() {
                         </View>
 
                         <View className="flex-row gap-2 mt-2">
-                          <TouchableOpacity 
+                          <TouchableOpacity
                             className="flex-1 bg-red-50 py-3 rounded-xl items-center border border-red-100"
                             onPress={async () => {
                               Alert.alert('Start Fresh', 'Are you sure you want to cancel this pending order?', [
                                 { text: 'No', style: 'cancel' },
-                                { text: 'Yes, Cancel', style: 'destructive', onPress: async () => {
-                                  try {
-                                    await api.post('mobile/v1/orders', { action: 'cancelPending', orderId: order.id });
-                                    api.get('mobile/v1/orders/pending').then((res: any) => res?.success && setPendingOrders(res.data || []));
-                                  } catch (e) {}
-                                }}
+                                {
+                                  text: 'Yes, Cancel', style: 'destructive', onPress: async () => {
+                                    try {
+                                      await api.post('mobile/v1/orders', { action: 'cancelPending', orderId: order.id });
+                                      api.get('mobile/v1/orders/pending').then((res: any) => res?.success && setPendingOrders(res.data || []));
+                                    } catch (e) { }
+                                  }
+                                }
                               ])
                             }}
                           >
                             <Text className="text-red-600 font-bold text-sm">Start Fresh</Text>
                           </TouchableOpacity>
-                          <TouchableOpacity 
+                          <TouchableOpacity
                             className={`flex-1 py-3 rounded-xl items-center ${new Date() > expiryDate ? 'bg-gray-300' : 'bg-primary'}`}
                             onPress={() => handleResumeOrder(order.id)}
                             disabled={new Date() > expiryDate}

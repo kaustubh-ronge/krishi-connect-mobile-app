@@ -58,7 +58,7 @@ export default function SpecialDeliveryModal({ visible, onClose, product, onSucc
 
       const res = await api.post('mobile/v1/special-delivery', payload);
 
-      if (res.data?.success) {
+      if (res?.success) {
         Alert.alert(
           "Request Sent!", 
           "Mediation initiated. Admin will review soon.",
@@ -68,7 +68,7 @@ export default function SpecialDeliveryModal({ visible, onClose, product, onSucc
           }}]
         );
       } else {
-        throw new Error(res.data?.error || "Failed to submit request.");
+        throw new Error(res?.error || "Failed to submit request.");
       }
     } catch (err: any) {
       console.error(err);
