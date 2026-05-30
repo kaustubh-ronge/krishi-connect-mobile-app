@@ -59,13 +59,6 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const displayName = profile?.name || user?.fullName || 'User';
-  const email = user?.primaryEmailAddress?.emailAddress || '';
-  const phone = profile?.phone || '';
-  const address = profile?.address || '';
-  const sellingStatus = profile?.sellingStatus || profile?.approvalStatus;
-  const statusConfig = sellingStatus ? STATUS_CONFIG[sellingStatus] : null;
-
   const needsProfile = isSignedIn && initialized && !profile && !loading;
 
   if (isLoaded && !isSignedIn) {
@@ -123,6 +116,15 @@ export default function ProfileScreen() {
       </SafeAreaView>
     );
   }
+
+  const displayName = profile?.name || user?.fullName || 'User';
+  const email = user?.primaryEmailAddress?.emailAddress || '';
+  const phone = profile?.phone || '';
+  const address = profile?.address || '';
+  const sellingStatus = profile?.sellingStatus || profile?.approvalStatus;
+  const statusConfig = sellingStatus ? STATUS_CONFIG[sellingStatus] : null;
+
+
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
