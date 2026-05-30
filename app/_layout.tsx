@@ -12,6 +12,7 @@ import * as SecureStore from 'expo-secure-store';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useApiClient } from '@/services/api';
 import { useUserStore } from '@/store/userStore';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 
@@ -148,6 +149,7 @@ export default function RootLayout() {
     <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
       <ClerkLoaded>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <ErrorBoundary>
           <AuthGuard />
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -167,6 +169,7 @@ export default function RootLayout() {
           </Stack>
           <InitializationOverlay />
           <StatusBar style="light" backgroundColor="transparent" translucent={true} />
+          </ErrorBoundary>
         </ThemeProvider>
       </ClerkLoaded>
     </ClerkProvider>
