@@ -95,8 +95,9 @@ export default function DashboardScreen() {
     );
   }
 
-  // Strictly block rendering until profile state is determined
-  if (!initialized || loading) {
+  // Block only on the initial load; background refreshes keep cached content
+  // and surface progress via the RefreshControl.
+  if (!initialized) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>

@@ -82,8 +82,8 @@ export default function ProfileScreen() {
     );
   }
 
-  // Strictly block rendering until profile state is determined
-  if (!initialized || loading) {
+  // Block only on the initial load; subsequent refreshes update in the background.
+  if (!initialized) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
