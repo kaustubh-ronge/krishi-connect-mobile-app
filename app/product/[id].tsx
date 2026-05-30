@@ -485,7 +485,11 @@ export default function ProductDetailScreen() {
           setSpecialRequests(reqRes.data || []);
           const approvedReq = reqRes.data?.find((r: any) => r.productId === p?.id && r.status === 'APPROVED' && !r.isConsumed);
           if (approvedReq) {
-            initialMinQty = approvedReq.quantity;
+            const currentCartQty = useCartStore.getState().items.find((it: any) => it.productId === p?.id)?.quantity || 0;
+            const maxAllowed = Math.max(0, approvedReq.quantity - currentCartQty);
+            const physical = Number(p?.availableStock) || 0;
+            const finalMax = Math.min(physical, maxAllowed);
+            initialMinQty = finalMax > 0 ? finalMax : 1;
           }
         }
 

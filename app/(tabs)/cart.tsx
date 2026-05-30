@@ -1538,7 +1538,7 @@
 import React, { useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
-  ActivityIndicator, Image, Alert, StyleSheet,
+  ActivityIndicator, Image, Alert, StyleSheet, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -1609,7 +1609,11 @@ export default function CartScreen() {
         api.get('mobile/v1/special-delivery').then((res: any) => res?.success && setSpecialRequests(res.data || []));
       }
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to cancel request');
+      if (Platform.OS === 'web') {
+        window.alert(e.message || 'Failed to cancel request');
+      } else {
+        Alert.alert('Error', e.message || 'Failed to cancel request');
+      }
     }
   };
 
@@ -1672,7 +1676,11 @@ export default function CartScreen() {
   // ── Unchanged: toggleSelect ───────────────────────────────────────────────
   const toggleSelect = (id: string, isSelectable: boolean) => {
     if (!isSelectable) {
-      Alert.alert('Unavailable', 'This item is out of delivery range. Please request special delivery approval first.');
+      if (Platform.OS === 'web') {
+        window.alert('This item is out of delivery range. Please request special delivery approval first.');
+      } else {
+        Alert.alert('Unavailable', 'This item is out of delivery range. Please request special delivery approval first.');
+      }
       return;
     }
     setSelectedItemIds(prev =>
@@ -1691,10 +1699,16 @@ export default function CartScreen() {
 
   // ── Unchanged: handleRemove ───────────────────────────────────────────────
   const handleRemove = (itemId: string, name: string) => {
-    Alert.alert('Remove Item', `Remove "${name}" from cart?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => removeFromCart(api, itemId) },
-    ]);
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Remove "${name}" from cart?`)) {
+        removeFromCart(api, itemId);
+      }
+    } else {
+      Alert.alert('Remove Item', `Remove "${name}" from cart?`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => removeFromCart(api, itemId) },
+      ]);
+    }
   };
 
   // ── Improved: renderItem ──────────────────────────────────────────────────
