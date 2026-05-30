@@ -62,9 +62,11 @@ function AuthGuard() {
       'checkout', 'orders', 'order-detail', 'create-listing', 
       'edit-listing', 'my-listings', 'manage-orders', 'sales'
     ];
-    // Specific tabs that require full auth and profile
-    const protectedTabs = ['dashboard', 'profile'];
-    // Special case for cart: allow it to render, but internally it will prompt for login if !isSignedIn
+    // NOTE: 'dashboard' and 'profile' tabs are intentionally NOT in protectedTabs.
+    // Those screens handle auth/profile state internally with safe placeholder UIs.
+    // Adding them here causes AuthGuard to fire router.replace() during an active
+    // tab transition in release builds, which crashes the native navigation stack.
+    const protectedTabs: string[] = [];
 
     const rootSegment = segments[0] || '';
     const tabSegment = segments[1] || '';

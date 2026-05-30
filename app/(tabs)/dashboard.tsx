@@ -72,8 +72,6 @@ export default function DashboardScreen() {
     ]);
   };
 
-  const needsProfile = isSignedIn && initialized && !profile && !loading;
-
   if (isLoaded && !isSignedIn) {
     return (
       <SafeAreaView style={styles.container}>
@@ -97,7 +95,19 @@ export default function DashboardScreen() {
     );
   }
 
-  if (needsProfile) {
+  // Strictly block rendering until profile state is determined
+  if (!initialized || loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#16a34a" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // At this point, we know user is signed in and profile fetch completed.
+  if (!profile) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={{ backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -115,16 +125,6 @@ export default function DashboardScreen() {
           >
             <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>Create Profile</Text>
           </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (loading && !profile) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#16a34a" />
         </View>
       </SafeAreaView>
     );
