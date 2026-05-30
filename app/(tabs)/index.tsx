@@ -611,6 +611,10 @@ export default function MarketplaceScreen() {
   const [sortBy, setSortBy] = useState('newest');
   const [sellerType, setSellerType] = useState('all');
   const [regionFilter, setRegionFilter] = useState('');
+  const [rangeFilter, setRangeFilter] = useState('all');
+  const [radiusFilter, setRadiusFilter] = useState('');
+  const [stateFilter, setStateFilter] = useState('');
+  const [cityFilter, setCityFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
   // ── Pagination (UI only, no API changes) ────────────────────────────────────
@@ -620,16 +624,27 @@ export default function MarketplaceScreen() {
   const pagedProducts = products.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   // ── Original logic — verbatim ───────────────────────────────────────────────
-  const fetchProducts = useCallback(async (
+  const fetchProducts = useCallback(async ({
     searchTerm = search,
     category = selectedCategory,
     sort = sortBy,
     seller = sellerType,
     region = regionFilter,
-  ) => {
+    range = rangeFilter,
+    radius = radiusFilter,
+    stateF = stateFilter,
+    cityF = cityFilter,
+  } = {}) => {
     try {
       setError('');
-      const params = new URLSearchParams({ search: searchTerm, category, sortBy: sort, sellerType: seller, region, limit: '20' });
+      const pObj: any = { search: searchTerm, category, sortBy: sort, sellerType: seller, limit: '20' };
+      if (region) pObj.region = region;
+      if (range && range !== 'all') pObj.rangeFilter = range;
+      if (radius) pObj.radiusFilter = radius;
+      if (stateF) pObj.state = stateF;
+      if (cityF) pObj.city = cityF;
+
+      const params = new URLSearchParams(pObj);
       const response = await api.get(`mobile/v1/products?${params.toString()}`);
       setProducts(response.data || []);
       setCurrentPage(1);
@@ -639,18 +654,33 @@ export default function MarketplaceScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [search, selectedCategory]);
+  }, [search, selectedCategory, sortBy, sellerType, regionFilter, rangeFilter, radiusFilter, stateFilter, cityFilter]);
 
   useFocusEffect(useCallback(() => { setLoading(true); fetchProducts(); }, [selectedCategory]));
 
   const onRefresh = () => { setRefreshing(true); fetchProducts(); };
-  const onSearchSubmit = () => { setLoading(true); fetchProducts(search, selectedCategory, sortBy, sellerType, regionFilter); };
-  const clearSearch = () => { setSearch(''); setLoading(true); fetchProducts('', selectedCategory, sortBy, sellerType, regionFilter); };
-  const onCategorySelect = (cat: string) => { setSelectedCategory(cat); setLoading(true); fetchProducts(search, cat, sortBy, sellerType, regionFilter); };
-  const applyFilters = (nb: string, ns: string, nr: string = regionFilter) => {
-    setSortBy(nb); setSellerType(ns); setRegionFilter(nr);
+  const onSearchSubmit = () => { setLoading(true); fetchProducts({ searchTerm: search }); };
+  const clearSearch = () => { setSearch(''); setLoading(true); fetchProducts({ searchTerm: '' }); };
+  const onCategorySelect = (cat: string) => { setSelectedCategory(cat); setLoading(true); fetchProducts({ category: cat }); };
+  
+  const applyFilters = (updates: any) => {
+    if (updates.sortBy !== undefined) setSortBy(updates.sortBy);
+    if (updates.sellerType !== undefined) setSellerType(updates.sellerType);
+    if (updates.regionFilter !== undefined) setRegionFilter(updates.regionFilter);
+    if (updates.rangeFilter !== undefined) setRangeFilter(updates.rangeFilter);
+    if (updates.radiusFilter !== undefined) setRadiusFilter(updates.radiusFilter);
+    if (updates.stateFilter !== undefined) setStateFilter(updates.stateFilter);
+    if (updates.cityFilter !== undefined) setCityFilter(updates.cityFilter);
     setLoading(true);
-    fetchProducts(search, selectedCategory, nb, ns, nr);
+    fetchProducts({
+      sort: updates.sortBy ?? sortBy,
+      seller: updates.sellerType ?? sellerType,
+      region: updates.regionFilter ?? regionFilter,
+      range: updates.rangeFilter ?? rangeFilter,
+      radius: updates.radiusFilter ?? radiusFilter,
+      stateF: updates.stateFilter ?? stateFilter,
+      cityF: updates.cityFilter ?? cityFilter,
+    });
   };
 
   const onPageChange = (page: number) => {
@@ -832,7 +862,7 @@ export default function MarketplaceScreen() {
       <Text style={styles.filterLabel}>Sort By</Text>
       <View style={styles.filterRow}>
         {[{ k: 'newest', l: 'Newest' }, { k: 'price_asc', l: 'Price ↑' }, { k: 'price_desc', l: 'Price ↓' }].map(s => (
-          <TouchableOpacity key={s.k} onPress={() => applyFilters(s.k, sellerType)}
+          <TouchableOpacity key={s.k} onPress={() => applyFilters({ sortBy: s.k })}
             style={[styles.fChip, sortBy === s.k && styles.fChipOn]}>
             <Text style={[styles.fChipTxt, sortBy === s.k && styles.fChipTxtOn]}>{s.l}</Text>
           </TouchableOpacity>
@@ -842,28 +872,70 @@ export default function MarketplaceScreen() {
       <Text style={styles.filterLabel}>Seller Type</Text>
       <View style={styles.filterRow}>
         {[{ k: 'all', l: '🌐 All' }, { k: 'farmer', l: '🌾 Farmer' }, { k: 'agent', l: '🏢 Agent' }].map(s => (
-          <TouchableOpacity key={s.k} onPress={() => applyFilters(sortBy, s.k, regionFilter)}
+          <TouchableOpacity key={s.k} onPress={() => applyFilters({ sellerType: s.k })}
             style={[styles.fChip, sellerType === s.k && styles.fChipOn]}>
             <Text style={[styles.fChipTxt, sellerType === s.k && styles.fChipTxtOn]}>{s.l}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <Text style={styles.filterLabel}>Region</Text>
+      <Text style={styles.filterLabel}>Delivery Range</Text>
+      <View style={styles.filterRow}>
+        {[{ k: 'all', l: 'All' }, { k: 'in_range', l: 'In Range' }, { k: 'out_of_range', l: 'Out of Range' }].map(s => (
+          <TouchableOpacity key={s.k} onPress={() => applyFilters({ rangeFilter: s.k })}
+            style={[styles.fChip, rangeFilter === s.k && styles.fChipOn]}>
+            <Text style={[styles.fChipTxt, rangeFilter === s.k && styles.fChipTxtOn]}>{s.l}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={styles.filterLabel}>Distance Radius</Text>
+      <View style={styles.filterRow}>
+        {[{ k: '', l: 'Any' }, { k: '5', l: '< 5km' }, { k: '20', l: '< 20km' }, { k: '50', l: '< 50km' }].map(s => (
+          <TouchableOpacity key={s.k} onPress={() => applyFilters({ radiusFilter: s.k })}
+            style={[styles.fChip, radiusFilter === s.k && styles.fChipOn]}>
+            <Text style={[styles.fChipTxt, radiusFilter === s.k && styles.fChipTxtOn]}>{s.l}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={styles.filterLabel}>Location</Text>
       <View style={styles.regionRow}>
         <View style={styles.regionInputBox}>
           <MapPin color="#94a3b8" size={13} />
           <TextInput
             style={styles.regionInput}
-            placeholder="e.g. Pune, Mumbai..."
+            placeholder="State"
+            placeholderTextColor="#b0bec5"
+            value={stateFilter}
+            onChangeText={setStateFilter}
+            onSubmitEditing={() => applyFilters({ stateFilter })}
+          />
+        </View>
+        <View style={styles.regionInputBox}>
+          <TextInput
+            style={styles.regionInput}
+            placeholder="City"
+            placeholderTextColor="#b0bec5"
+            value={cityFilter}
+            onChangeText={setCityFilter}
+            onSubmitEditing={() => applyFilters({ cityFilter })}
+          />
+        </View>
+      </View>
+      <View style={[styles.regionRow, { marginTop: 8 }]}>
+        <View style={styles.regionInputBox}>
+          <TextInput
+            style={styles.regionInput}
+            placeholder="Region / District"
             placeholderTextColor="#b0bec5"
             value={regionFilter}
             onChangeText={setRegionFilter}
-            onSubmitEditing={() => applyFilters(sortBy, sellerType, regionFilter)}
+            onSubmitEditing={() => applyFilters({ regionFilter })}
           />
         </View>
-        {regionFilter.length > 0 && (
-          <TouchableOpacity onPress={() => applyFilters(sortBy, sellerType, '')} style={styles.clearBtn}>
+        {(regionFilter || stateFilter || cityFilter) && (
+          <TouchableOpacity onPress={() => applyFilters({ regionFilter: '', stateFilter: '', cityFilter: '' })} style={styles.clearBtn}>
             <X color="#dc2626" size={11} />
             <Text style={styles.clearBtnTxt}>Clear</Text>
           </TouchableOpacity>
