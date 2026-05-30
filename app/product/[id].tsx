@@ -12,7 +12,7 @@
 // import { getRouteParam, formatLocation, calculateDistance } from '@/lib/apiHelpers';
 // import { useCartStore } from '@/store/cartStore';
 // import { useUserStore } from '@/store/userStore';
-// import { ArrowLeft, MapPin, Package, Plus, Minus, ShoppingCart, Truck, AlertCircle, Clock, CheckCircle2 } from 'lucide-react-native';
+// import { ArrowLeft, MapPin, Package, Plus, Minus, ShoppingCart, Truck, AlertCircle, Clock, CheckCircle2, MessageCircle, Scale } from 'lucide-react-native';
 // import SpecialDeliveryModal from '@/components/SpecialDeliveryModal';
 
 // export default function ProductDetailScreen() {
@@ -410,7 +410,7 @@ import React, { useEffect, useState } from 'react';
 import {
   View, Text, Image, TouchableOpacity,
   ActivityIndicator, ScrollView, Alert, StyleSheet,
-  Dimensions, Animated,
+  Dimensions, Animated, Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -421,7 +421,7 @@ import { useApiClient } from '@/services/api';
 import { getRouteParam, formatLocation, calculateDistance } from '@/lib/apiHelpers';
 import { useCartStore } from '@/store/cartStore';
 import { useUserStore } from '@/store/userStore';
-import { ArrowLeft, MapPin, Package, Plus, Minus, ShoppingCart, Truck, AlertCircle, Clock, CheckCircle2 } from 'lucide-react-native';
+import { ArrowLeft, MapPin, Package, Plus, Minus, ShoppingCart, Truck, AlertCircle, Clock, CheckCircle2, MessageCircle, Scale } from 'lucide-react-native';
 import SpecialDeliveryModal from '@/components/SpecialDeliveryModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -483,8 +483,10 @@ export default function ProductDetailScreen() {
 
         if (reqRes?.success) {
           setSpecialRequests(reqRes.data || []);
-          const hasApproval = reqRes.data?.some((r: any) => r.productId === p?.id && r.status === 'APPROVED' && !r.isConsumed);
-          if (hasApproval) initialMinQty = 1;
+          const approvedReq = reqRes.data?.find((r: any) => r.productId === p?.id && r.status === 'APPROVED' && !r.isConsumed);
+          if (approvedReq) {
+            initialMinQty = approvedReq.quantity;
+          }
         }
 
         if (p?.minOrderQuantity || reqRes?.success) {
@@ -546,12 +548,22 @@ export default function ProductDetailScreen() {
     setAddingToCart(true);
     try {
       await addToCart(api, product.id, quantity);
-      Alert.alert('Added to Cart ✓', `${quantity} × ${product.productName} added to your cart.`, [
-        { text: 'View Cart', onPress: () => router.push('/(tabs)/cart') },
-        { text: 'Continue Shopping', style: 'cancel' },
-      ]);
+      if (Platform.OS === 'web') {
+        if (window.confirm(`${quantity} × ${product.productName} added to your cart.\n\nDo you want to view your cart now?`)) {
+          router.push('/(tabs)/cart');
+        }
+      } else {
+        Alert.alert('Added to Cart ✓', `${quantity} × ${product.productName} added to your cart.`, [
+          { text: 'View Cart', onPress: () => router.push('/(tabs)/cart') },
+          { text: 'Continue Shopping', style: 'cancel' },
+        ]);
+      }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to add to cart. Please try again.');
+      if (Platform.OS === 'web') {
+        window.alert(err.message || 'Failed to add to cart. Please try again.');
+      } else {
+        Alert.alert('Error', err.message || 'Failed to add to cart. Please try again.');
+      }
     } finally {
       setAddingToCart(false);
     }
@@ -745,64 +757,257 @@ export default function ProductDetailScreen() {
           {/* ── Main Card ── */}
           <View style={styles.mainCard}>
 
-            {/* Title & Price */}
+            {/* ── Header Badges Row ── */}
+            <View style={styles.headerBadgesRow}>
+              <View style={[styles.headerBadge, product.sellerType === 'farmer'
+                ? { backgroundColor: '#dcfce7', borderColor: '#bbf7d0' }
+                : { backgroundColor: '#dbeafe', borderColor: '#bfdbfe' }]}>
+                <Text style={[styles.headerBadgeTxt, { color: product.sellerType === 'farmer' ? '#15803d' : '#1d4ed8' }]}>
+                  {product.sellerType === 'farmer' ? '🌾 Direct from Farm' : '🏢 Verified Trader'}
+                </Text>
+              </View>
+              {product.category ? (
+                <View style={[styles.headerBadge, { backgroundColor: '#fff7ed', borderColor: '#fed7aa' }]}>
+                  <Text style={[styles.headerBadgeTxt, { color: '#c2410c' }]}>{product.category}</Text>
+                </View>
+              ) : null}
+              {seller?.averageRating != null && (
+                <View style={[styles.headerBadge, { backgroundColor: '#fef9c3', borderColor: '#fde68a' }]}>
+                  <Text style={[styles.headerBadgeTxt, { color: '#92400e' }]}>
+                    ⭐ {Number(seller.averageRating).toFixed(1)}
+                    {seller?.totalReviews ? ` (${seller.totalReviews})` : ''}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* ── Product Name ── */}
             <Text style={styles.productName}>{product.productName}</Text>
 
+            {/* ── Price Row ── */}
             <View style={styles.priceRow}>
               <Text style={styles.priceMain}>₹{product.pricePerUnit}</Text>
               <Text style={styles.priceUnit}>/ {product.unit}</Text>
+              {sellableStock <= 0 && (
+                <View style={styles.outOfStockBadge}>
+                  <Text style={styles.outOfStockTxt}>OUT OF STOCK</Text>
+                </View>
+              )}
+              {sellableStock === 1 && (
+                <View style={[styles.outOfStockBadge, { backgroundColor: '#dc2626' }]}>
+                  <Text style={styles.outOfStockTxt}>🔥 LAST UNIT</Text>
+                </View>
+              )}
+              {sellableStock > 1 && sellableStock <= 10 && (
+                <View style={[styles.outOfStockBadge, { backgroundColor: '#ea580c' }]}>
+                  <Text style={styles.outOfStockTxt}>⚡ Only {sellableStock} left</Text>
+                </View>
+              )}
             </View>
 
-            {/* Stock & Delivery chips */}
-            <View style={styles.chipRow}>
-              <View style={styles.chip}>
-                <Text style={styles.chipEmoji}>📦</Text>
-                <Text style={styles.chipText}>{sellableStock} {product.unit} in stock</Text>
+            {/* ── Structured Info Panel (mirrors web design) ── */}
+            <View style={styles.infoPanel}>
+              {/* Stock Available Row */}
+              <View style={styles.infoPanelRow}>
+                <View style={styles.infoPanelIcon}>
+                  <Package color="#2563eb" size={16} />
+                </View>
+                <View style={styles.infoPanelContent}>
+                  <Text style={styles.infoPanelLabel}>STOCK AVAILABLE</Text>
+                  <Text style={styles.infoPanelValue}>{sellableStock} {product.unit}</Text>
+                </View>
+                {maxQty > 0 ? (
+                  <View style={styles.infoPanelBadgeGreen}>
+                    <CheckCircle2 color="#15803d" size={10} />
+                    <Text style={styles.infoPanelBadgeGreenTxt}>Available</Text>
+                  </View>
+                ) : (
+                  <View style={styles.infoPanelBadgeRed}>
+                    <Text style={styles.infoPanelBadgeRedTxt}>Out of Stock</Text>
+                  </View>
+                )}
               </View>
-              <View style={[styles.chip, product.deliveryCharge === 0 && styles.chipGreen]}>
-                <Text style={styles.chipEmoji}>🚚</Text>
-                <Text style={[styles.chipText, product.deliveryCharge === 0 && { color: '#15803d' }]}>{deliveryLabel}</Text>
+
+              <View style={styles.infoPanelDivider} />
+
+              {/* Delivery Logistics Row */}
+              <View style={styles.infoPanelRow}>
+                <View style={[styles.infoPanelIcon, { backgroundColor: '#fff7ed' }]}>
+                  <Truck color="#ea580c" size={16} />
+                </View>
+                <View style={styles.infoPanelContent}>
+                  <Text style={styles.infoPanelLabel}>DELIVERY LOGISTICS</Text>
+                  {isFeeLoading ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <ActivityIndicator size="small" color="#ea580c" />
+                      <Text style={[styles.infoPanelValue, { color: '#94a3b8' }]}>Calculating…</Text>
+                    </View>
+                  ) : (
+                    <Text style={[styles.infoPanelValue, isOutOfRange && { color: '#dc2626' }]}>
+                      {isOutOfRange
+                        ? 'Out of Range'
+                        : dynamicFee !== null
+                          ? `₹${dynamicFee} to you`
+                          : deliveryLabel}
+                    </Text>
+                  )}
+                </View>
+                {!isFeeLoading && dynamicFee !== null && !isOutOfRange && (
+                  <View style={[styles.infoPanelBadge, { backgroundColor: '#fff7ed', borderColor: '#fed7aa' }]}>
+                    <Text style={[styles.infoPanelBadgeTxt, { color: '#c2410c' }]}>Matched</Text>
+                  </View>
+                )}
+                {!isFeeLoading && isOutOfRange && !isBypassed && (
+                  <View style={[styles.infoPanelBadge, { backgroundColor: '#fef2f2', borderColor: '#fecaca' }]}>
+                    <Text style={[styles.infoPanelBadgeTxt, { color: '#dc2626' }]}>Extended</Text>
+                  </View>
+                )}
               </View>
+
+              {/* Min Order Row (only when > 1) */}
+              {product.minOrderQuantity > 1 && (
+                <>
+                  <View style={styles.infoPanelDivider} />
+                  <View style={styles.infoPanelRow}>
+                    <View style={[styles.infoPanelIcon, { backgroundColor: '#f0fdf4' }]}>
+                      <Scale color="#15803d" size={16} />
+                    </View>
+                    <View style={styles.infoPanelContent}>
+                      <Text style={styles.infoPanelLabel}>MINIMUM ORDER</Text>
+                      <Text style={styles.infoPanelValue}>{product.minOrderQuantity} {product.unit}</Text>
+                    </View>
+                  </View>
+                </>
+              )}
             </View>
 
-            {/* Dynamic fee display */}
-            {isFeeLoading && (
-              <View style={styles.feeLoader}>
-                <ActivityIndicator size="small" color="#16a34a" />
-                <Text style={styles.feeLoaderText}>Calculating delivery fee…</Text>
-              </View>
-            )}
-            {!isFeeLoading && dynamicFee !== null && !isOutOfRange && (
-              <View style={styles.feeChip}>
-                <Truck color="#16a34a" size={14} />
-                <Text style={styles.feeChipText}>Delivery to you: ₹{dynamicFee}</Text>
+            {/* Out-of-range banner */}
+            {isOutOfRange && !isBypassed && (
+              <View style={styles.outOfRangeBanner}>
+                <AlertCircle color="#b45309" size={16} />
+                <Text style={styles.outOfRangeTxt}>
+                  This seller is outside standard delivery range. Request special logistics approval below.
+                </Text>
               </View>
             )}
 
-            {/* Divider */}
+            {/* ── Divider ── */}
             <View style={styles.divider} />
 
-            {/* ── Seller Card ── */}
-            <Text style={styles.sectionLabel}>Seller</Text>
+            {/* ── Description ── */}
+            {product.description ? (
+              <>
+                <Text style={styles.sectionLabel}>About this Product</Text>
+                <Text style={styles.descriptionText}>{product.description}</Text>
+                <View style={styles.divider} />
+              </>
+            ) : null}
+
+            {/* ── Product Details Stat Grid ── */}
+            <Text style={styles.sectionLabel}>Product Details</Text>
+            <View style={styles.statGrid}>
+              <View style={styles.statItem}>
+                <Text style={styles.statEmoji}>⏳</Text>
+                <Text style={styles.statLabel}>Shelf Life</Text>
+                <Text style={styles.statValue}>{product.shelfLife || 'N/A'}</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statEmoji}>📅</Text>
+                <Text style={styles.statLabel}>Harvest Date</Text>
+                <Text style={styles.statValue}>
+                  {product.harvestDate
+                    ? new Date(product.harvestDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })
+                    : 'N/A'}
+                </Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statEmoji}>🏆</Text>
+                <Text style={styles.statLabel}>Quality</Text>
+                <Text style={styles.statValue}>{product.qualityGrade || 'Standard'}</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statEmoji}>📍</Text>
+                <Text style={styles.statLabel}>Delivery Radius</Text>
+                <Text style={styles.statValue}>
+                  {product.maxDeliveryRange ? `${product.maxDeliveryRange} KM` : 'Standard'}
+                </Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statEmoji}>📦</Text>
+                <Text style={styles.statLabel}>Min Order</Text>
+                <Text style={styles.statValue}>{product.minOrderQuantity || 1} {product.unit}</Text>
+              </View>
+              {product.deliveryChargeType && (
+                <View style={styles.statItem}>
+                  <Text style={styles.statEmoji}>🚚</Text>
+                  <Text style={styles.statLabel}>Delivery Type</Text>
+                  <Text style={styles.statValue}>{product.deliveryChargeType === 'flat' ? 'Flat Rate' : 'Per Unit'}</Text>
+                </View>
+              )}
+            </View>
+
+            {/* ── Variety Tags ── */}
+            {product.variety ? (
+              <>
+                <View style={styles.divider} />
+                <Text style={styles.sectionLabel}>Variety & Features</Text>
+                <View style={styles.varietyTagRow}>
+                  {product.variety.split(', ').map((tag: string, idx: number) => (
+                    <View key={idx} style={styles.varietyTag}>
+                      <Text style={styles.varietyTagTxt}>{tag.trim()}</Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : null}
+
+
+
+            {/* ── Seller Section ── */}
+            <View style={styles.divider} />
+            <Text style={styles.sectionLabel}>Seller Information</Text>
             <View style={styles.sellerCard}>
               <LinearGradient
-                colors={['#15803d', '#4ade80']}
+                colors={product.sellerType === 'farmer' ? ['#15803d', '#4ade80'] : ['#1d4ed8', '#60a5fa']}
                 style={styles.sellerAvatar}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               >
                 <Text style={styles.sellerAvatarText}>{sellerName[0]?.toUpperCase()}</Text>
               </LinearGradient>
+
               <View style={{ flex: 1 }}>
-                <Text style={styles.sellerName}>{sellerName}</Text>
+                <View style={styles.sellerNameRow}>
+                  <Text style={styles.sellerName} numberOfLines={1}>{sellerName}</Text>
+                  <View style={styles.sellerBadge}>
+                    <Text style={styles.sellerBadgeText}>✓ Verified</Text>
+                  </View>
+                </View>
+
+                {product.sellerType === 'farmer' && seller?.farmName && seller.farmName !== sellerName && (
+                  <Text style={styles.sellerSubName}>{seller.farmName}</Text>
+                )}
+                {product.sellerType === 'agent' && seller?.companyName && seller.companyName !== sellerName && (
+                  <Text style={styles.sellerSubName}>{seller.companyName}</Text>
+                )}
+
+                {product.sellerType === 'agent' && seller?.agentType && (
+                  <Text style={styles.sellerMeta}>🏢 {seller.agentType}</Text>
+                )}
+
+                {product.sellerType === 'farmer' && seller?.farmingExperience && (
+                  <Text style={styles.sellerMeta}>🌱 {seller.farmingExperience} yrs experience</Text>
+                )}
+
+                {product.sellerType === 'farmer' && seller?.primaryProduce && (
+                  <Text style={styles.sellerMeta}>🌾 Specialises in: {seller.primaryProduce}</Text>
+                )}
+
                 {location ? (
                   <View style={styles.sellerLocation}>
-                    <MapPin color="#86a892" size={12} />
+                    <MapPin color="#64748b" size={11} />
                     <Text style={styles.sellerLocationText}>{location}</Text>
                   </View>
                 ) : null}
-              </View>
-              <View style={styles.sellerBadge}>
-                <Text style={styles.sellerBadgeText}>Verified</Text>
               </View>
             </View>
 
@@ -1446,6 +1651,240 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     lineHeight: 19,
     flex: 1,
+  },
+
+  // Header Badges
+  headerBadgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  headerBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  headerBadgeTxt: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  outOfStockBadge: {
+    backgroundColor: '#9ca3af',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 6,
+  },
+  outOfStockTxt: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+
+  // Stat Grid
+  statGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  statItem: {
+    width: '48%',
+    backgroundColor: '#f8fafc',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+  },
+  statEmoji: {
+    fontSize: 18,
+    marginBottom: 6,
+  },
+  statLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  statValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+
+  // Variety Tags
+  varietyTagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  varietyTag: {
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  varietyTagTxt: {
+    color: '#1d4ed8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // Seller Section Enhancements
+  sellerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  sellerSubName: {
+    fontSize: 13,
+    color: '#475569',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  sellerMeta: {
+    fontSize: 12,
+    color: '#64748b',
+    marginBottom: 2,
+  },
+
+  // Info Panel
+  infoPanel: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 16,
+    marginBottom: 20,
+  },
+  infoPanelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  infoPanelIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#dbeafe',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoPanelContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  infoPanelLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748b',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  infoPanelValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  infoPanelBadgeGreen: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  infoPanelBadgeGreenTxt: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#15803d',
+  },
+  infoPanelBadgeRed: {
+    backgroundColor: '#fee2e2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  infoPanelBadgeRedTxt: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#b91c1c',
+  },
+  infoPanelBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  infoPanelBadgeTxt: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  infoPanelDivider: {
+    height: 1,
+    backgroundColor: '#e2e8f0',
+    marginVertical: 12,
+  },
+
+  // Action Row
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
+  contactSupportBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1.5,
+    borderColor: '#bfdbfe',
+    paddingVertical: 14,
+    borderRadius: 16,
+  },
+  contactSupportTxt: {
+    color: '#1d4ed8',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+
+  // Out of Range Banner
+  outOfRangeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fffbeb',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    marginBottom: 20,
+    gap: 8,
+  },
+  outOfRangeTxt: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400e',
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+
+  // Description
+  descriptionText: {
+    fontSize: 14,
+    color: '#475569',
+    lineHeight: 22,
+    marginBottom: 16,
   },
 
   // Footer

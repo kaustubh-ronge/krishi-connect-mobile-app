@@ -8,7 +8,10 @@
     "scheme": "krishiconnect",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +20,8 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.kaustubhronge.krishimobileapp",
-      "versionCode": 2
+      "versionCode": 2,
+      "runtimeVersion": "1.0.0"
     },
     "web": {
       "output": "static",
@@ -49,6 +53,9 @@
       "eas": {
         "projectId": "ea39a6b0-9ca3-492b-a4f5-af176916a3d2"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ea39a6b0-9ca3-492b-a4f5-af176916a3d2"
     }
   }
 }

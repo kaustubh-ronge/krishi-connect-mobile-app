@@ -47,7 +47,7 @@ export default function ProfileScreen() {
     const doSignOut = async () => {
       clearLocalCart();
       useUserStore.getState().clearProfile();
-      try { await signOut(); } catch (e) { console.error('SignOut error', e); }
+      try { await signOut(); } catch (e) {}
     };
     if (Platform.OS === 'web') {
       if (window.confirm('Are you sure you want to sign out?')) await doSignOut();

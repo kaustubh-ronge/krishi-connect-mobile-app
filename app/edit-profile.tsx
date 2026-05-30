@@ -145,7 +145,7 @@ export default function EditProfileScreen() {
         onPress: async () => {
           clearLocalCart();
           clearProfile();
-          try { await signOut(); } catch (e) { console.error('Sign out error', e); }
+          try { await signOut(); } catch (e) {}
         }
       },
     ]);

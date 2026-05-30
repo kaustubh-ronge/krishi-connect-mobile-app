@@ -1660,9 +1660,7 @@ export default function CartScreen() {
               return validItemIds.filter(id => prev.length === 0 || prevSet.has(id));
             });
           }
-        } catch (err) {
-          console.error("Fee Fetch Error:", err);
-        }
+        } catch (err) {}
       } else {
         setDynamicFeeData(null);
         setUnserviceableIds([]);
@@ -2011,7 +2009,6 @@ export default function CartScreen() {
   // ── Main Render ───────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.rootBg} edges={['top']}>
-
       {/* Header */}
       <LinearGradient
         colors={['#15803d', '#16a34a']}
@@ -2032,7 +2029,6 @@ export default function CartScreen() {
           </View>
         )}
       </LinearGradient>
-
       {/* Tab Bar */}
       <View style={styles.tabBar}>
         <TouchableOpacity
@@ -2054,7 +2050,6 @@ export default function CartScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-
       {/* Error */}
       {error ? (
         <View style={styles.errorContainer}>
@@ -2233,7 +2228,7 @@ export default function CartScreen() {
             </>
           ) : (
             /* ── Recoveries Tab ── */
-            <View style={styles.section}>
+            (<View style={styles.section}>
               {pendingOrders.length === 0 ? (
                 <MotiView
                   from={{ opacity: 0, scale: 0.92 }}
@@ -2347,11 +2342,10 @@ export default function CartScreen() {
                   })}
                 </>
               )}
-            </View>
+            </View>)
           )}
         </ScrollView>
       )}
-
       <SpecialDeliveryModal
         visible={isSpecialDeliveryModalVisible}
         onClose={() => setSpecialDeliveryModalVisible(false)}

@@ -52,7 +52,6 @@ export default function SignUpScreen() {
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
       setPendingVerification(true);
     } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
       setError(err.errors?.[0]?.message || 'An error occurred during sign up.');
     } finally {
       setLoading(false);
@@ -70,7 +69,6 @@ export default function SignUpScreen() {
         await setActive({ session: createdSessionId });
       }
     } catch (err: any) {
-      console.error('OAuth error', err);
       setError('Google Sign-Up failed or was cancelled.');
       setLoading(false);
     }
@@ -89,7 +87,6 @@ export default function SignUpScreen() {
         setLoading(false);
       }
     } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
       setError(err.errors?.[0]?.message || 'Verification failed.');
       setLoading(false);
     }
@@ -103,7 +100,6 @@ export default function SignUpScreen() {
         style={StyleSheet.absoluteFill}
       />
       <View style={styles.decorCircle} />
-
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -223,7 +219,7 @@ export default function SignUpScreen() {
                 </>
               ) : (
                 /* OTP Verification */
-                <MotiView from={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+                (<MotiView from={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
                   <View style={styles.otpIconContainer}>
                     <ShieldCheck color="#4ade80" size={40} />
                   </View>
@@ -238,7 +234,6 @@ export default function SignUpScreen() {
                     maxLength={6}
                     textAlign="center"
                   />
-
                   <TouchableOpacity onPress={onPressVerify} disabled={loading} activeOpacity={0.88} style={{ marginTop: 12 }}>
                     <LinearGradient
                       colors={loading ? ['#64748b', '#64748b'] : ['#15803d', '#16a34a']}
@@ -252,11 +247,10 @@ export default function SignUpScreen() {
                       )}
                     </LinearGradient>
                   </TouchableOpacity>
-
                   <TouchableOpacity style={styles.backToSignUp} onPress={() => setPendingVerification(false)}>
                     <Text style={styles.backToSignUpText}>← Change email</Text>
                   </TouchableOpacity>
-                </MotiView>
+                </MotiView>)
               )}
             </MotiView>
           </ScrollView>

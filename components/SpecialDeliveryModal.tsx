@@ -937,7 +937,6 @@ export default function SpecialDeliveryModal({
         throw new Error(res?.error || 'Failed to submit request.');
       }
     } catch (err: any) {
-      console.error(err);
       Alert.alert('Error', err.message || 'Failed to initiate mediation.');
     } finally {
       setIsSending(false);

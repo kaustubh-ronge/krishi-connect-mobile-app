@@ -30,9 +30,7 @@ export default function DeliveriesScreen() {
       if (res.data?.success) {
         setJobs(res.data.data || []);
       }
-    } catch (err: any) {
-      console.error('Fetch jobs error', err);
-    } finally {
+    } catch (err: any) {} finally {
       setLoading(false);
       setRefreshing(false);
     }

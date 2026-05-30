@@ -487,9 +487,10 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useApiClient } from '@/services/api';
 import {
   MapPin, Package, Search, X, SlidersHorizontal,
-  ChevronLeft, ChevronRight, Leaf, TrendingUp,
+  ChevronLeft, ChevronRight, Leaf, TrendingUp, Star,
 } from 'lucide-react-native';
 import { MotiView } from 'moti';
+import { formatLocation } from '@/lib/apiHelpers';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const { width: SW } = Dimensions.get('window');
@@ -661,19 +662,60 @@ export default function MarketplaceScreen() {
   const renderProduct = ({ item, index }: { item: any; index: number }) => {
     const imageUrl = item.images?.length > 0 ? item.images[0] : null;
     const seller = item.farmer || item.agent;
-    const sellerName = seller?.name || seller?.companyName || 'Unknown Seller';
+    const isFarmer = item.sellerType === 'farmer';
+
+    // Seller name
+    const sellerName = isFarmer
+      ? (seller?.farmName || seller?.name || '')
+      : (seller?.companyName || seller?.name || '');
+
+    // Location: marketplace API returns district + region only
     const district = seller?.district;
     const region = seller?.region;
-    const location = district ? `${district}${region ? ', ' + region : ''}` : null;
-    const stock = item.availableSellableStock !== undefined ? item.availableSellableStock : item.availableStock;
+    const location = [district, region].filter(Boolean).join(', ');
+
+    // Stock
+    const stock = item.availableSellableStock !== undefined
+      ? item.availableSellableStock
+      : (item.availableStock ?? 0);
+    const isLowStock = stock > 0 && stock <= 10;
+    const isLastItem = stock === 1;
+    const isSoldOut = stock <= 0;
+
+    // Rating
+    const rating = seller?.averageRating;
+
+    // Category colours
     const catKey = item.category || 'General';
     const cc = CAT_COLORS[catKey] ?? CAT_COLORS['General'];
+
+    // Seller badge colours
+    const sellerBadgeColor = isFarmer ? '#15803d' : '#1d4ed8';
+    const sellerBadgeBg = isFarmer ? '#dcfce7' : '#dbeafe';
+    const sellerLabel = isFarmer ? '🌾 Farm' : '🏢 Agent';
+
+    // Delivery
+    const isFreeDelivery = Number(item.deliveryCharge) === 0;
+    const minQty = item.minOrderQuantity || 1;
+
+    // Stock pill label — single fixed string, never wraps
+    const stockPillLabel = isSoldOut
+      ? 'Out of Stock'
+      : isLastItem
+      ? '🔥 Last 1'
+      : isLowStock
+      ? `⚡ ${stock} ${item.unit}`
+      : `${stock} ${item.unit}`;
+    const stockPillGreen = !isSoldOut;
+
+    // Delivery pill — single fixed string
+    const deliveryPillLabel = isFreeDelivery ? '🚚 Free' : `🚚 ₹${item.deliveryCharge}`;
 
     return (
       <MotiView
         from={{ opacity: 0, translateY: 18, scale: 0.96 }}
         animate={{ opacity: 1, translateY: 0, scale: 1 }}
-        transition={{ type: 'spring', delay: index * 50, damping: 18, stiffness: 130 }}
+        transition={{ type: 'spring', delay: index * 45, damping: 18, stiffness: 130 }}
         style={styles.cardWrap}
       >
         <TouchableOpacity
@@ -681,7 +723,7 @@ export default function MarketplaceScreen() {
           activeOpacity={0.80}
           onPress={() => router.push(`/product/${item.id}`)}
         >
-          {/* Image */}
+          {/* ── Image ── */}
           <View style={styles.imgBox}>
             {imageUrl
               ? <Image source={{ uri: imageUrl }} style={styles.productImg} resizeMode="cover" />
@@ -693,34 +735,80 @@ export default function MarketplaceScreen() {
                 </View>
               )
             }
-            <LinearGradient colors={['transparent', 'rgba(0,0,0,0.30)']} style={styles.imgGrad} />
-            {/* Category badge */}
+            <LinearGradient colors={['transparent', 'rgba(0,0,0,0.40)']} style={styles.imgGrad} />
+
+            {/* Category badge — top left */}
             <View style={[styles.catBadge, { backgroundColor: cc.bg }]}>
               <View style={[styles.catDot, { backgroundColor: cc.dot }]} />
               <Text style={[styles.catBadgeTxt, { color: cc.text }]} numberOfLines={1}>{catKey}</Text>
             </View>
+
+            {/* Seller type badge — top right */}
+            <View style={[styles.sellerTypeBadge, { backgroundColor: sellerBadgeBg }]}>
+              <Text style={[styles.sellerTypeBadgeTxt, { color: sellerBadgeColor }]}>{sellerLabel}</Text>
+            </View>
+
+            {/* Stock urgency badge — bottom-left (only when low/last/sold) */}
+            {(isLastItem || (isLowStock && !isLastItem) || isSoldOut) && (
+              <View style={[
+                styles.urgencyBadge,
+                { backgroundColor: isSoldOut ? '#374151' : isLastItem ? '#dc2626' : '#ea580c' }
+              ]}>
+                <Text style={styles.urgencyBadgeTxt}>
+                  {isSoldOut ? 'SOLD OUT' : isLastItem ? '🔥 LAST' : `⚡ ${stock} left`}
+                </Text>
+              </View>
+            )}
           </View>
 
-          {/* Body — every section fixed height → cards always equal */}
+          {/* ── Card Body ── */}
           <View style={styles.cardBody}>
-            {/* Name: 2-line reserved height */}
+
+            {/* Name — exactly 2 lines, fixed height */}
             <View style={styles.nameBox}>
               <Text style={styles.productName} numberOfLines={2}>{item.productName}</Text>
             </View>
-            {/* Price */}
+
+            {/* Price + rating — fixed height row */}
             <View style={styles.priceRow}>
               <Text style={styles.price}>₹{item.pricePerUnit}</Text>
               <Text style={styles.unit}> /{item.unit}</Text>
+              {rating != null && (
+                <View style={styles.ratingPill}>
+                  <Text style={styles.ratingTxt}>⭐ {Number(rating).toFixed(1)}</Text>
+                </View>
+              )}
             </View>
-            {/* Location: 1-line reserved — shows dash if missing */}
+
+            {/* Location — 1 line fixed height, always shows */}
             <View style={styles.locRow}>
-              <MapPin color="#b0bec5" size={10} />
-              <Text style={styles.locTxt} numberOfLines={1}>{location ?? '—'}</Text>
+              <MapPin color="#94a3b8" size={10} />
+              <Text style={styles.locTxt} numberOfLines={1}>
+                {location.length > 0 ? location : 'India'}
+              </Text>
             </View>
-            {/* Stock badge */}
-            <View style={styles.stockBadge}>
-              <Leaf color="#16a34a" size={9} />
-              <Text style={styles.stockTxt}>{stock} {item.unit}</Text>
+
+            {/* Seller — 1 line fixed height */}
+            <View style={styles.sellerRow}>
+              <View style={[styles.sellerDot, { backgroundColor: sellerBadgeColor }]} />
+              <Text style={[styles.sellerNameTxt, { color: sellerBadgeColor }]} numberOfLines={1}>
+                {sellerName || (isFarmer ? 'Farmer' : 'Agent')}
+              </Text>
+            </View>
+
+            {/* Pills — EXACTLY 2 fixed pills, no wrap = consistent height */}
+            <View style={styles.pillRow}>
+              <View style={[styles.pill, stockPillGreen ? styles.pillGreen : styles.pillRed]}>
+                <Leaf color={stockPillGreen ? '#15803d' : '#b91c1c'} size={8} />
+                <Text style={[styles.pillTxt, { color: stockPillGreen ? '#15803d' : '#b91c1c' }]} numberOfLines={1}>
+                  {stockPillLabel}
+                </Text>
+              </View>
+              <View style={[styles.pill, isFreeDelivery ? styles.pillGreen : styles.pillDefault]}>
+                <Text style={[styles.pillTxt, { color: isFreeDelivery ? '#15803d' : '#475569' }]} numberOfLines={1}>
+                  {deliveryPillLabel}
+                </Text>
+              </View>
             </View>
           </View>
         </TouchableOpacity>
@@ -940,17 +1028,17 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f1f5f9' },
 
   // Header
-  header: { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 20, overflow: 'hidden' },
+  header: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 14, overflow: 'hidden' },
   hDecor1: { position: 'absolute', top: -30, right: -30, width: 115, height: 115, borderRadius: 58, backgroundColor: 'rgba(255,255,255,0.06)' },
   hDecor2: { position: 'absolute', top: 24, right: 52, width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.04)' },
-  hTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 },
-  hBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.13)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, marginBottom: 5 },
-  hBadgeTxt: { color: '#4ade80', fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },
-  hTitle: { fontSize: 28, fontWeight: '900', color: '#fff', letterSpacing: -1, lineHeight: 32 },
-  hSubtitle: { fontSize: 12.5, color: 'rgba(255,255,255,0.72)', marginTop: 3, fontWeight: '500' },
-  hIconWrap: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginTop: 4 },
-  countPill: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', backgroundColor: '#fff', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginBottom: 10 },
-  countPillTxt: { fontSize: 11, fontWeight: '700', color: '#16a34a' },
+  hTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  hBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.13)', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 20, marginBottom: 3 },
+  hBadgeTxt: { color: '#4ade80', fontSize: 8, fontWeight: '800', letterSpacing: 1.2 },
+  hTitle: { fontSize: 22, fontWeight: '900', color: '#fff', letterSpacing: -0.8, lineHeight: 26 },
+  hSubtitle: { fontSize: 11.5, color: 'rgba(255,255,255,0.70)', marginTop: 2, fontWeight: '500' },
+  hIconWrap: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  countPill: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', backgroundColor: '#fff', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, marginBottom: 8 },
+  countPillTxt: { fontSize: 10.5, fontWeight: '700', color: '#16a34a' },
 
   // Search
   searchBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 11, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.10, shadowRadius: 10, elevation: 4 },
@@ -1017,17 +1105,33 @@ const styles = StyleSheet.create({
   catDot: { width: 5, height: 5, borderRadius: 2.5 },
   catBadgeTxt: { fontSize: 9, fontWeight: '800', letterSpacing: 0.2 },
 
-  // Card body — FIXED heights per row = cards are always the same total height
-  cardBody: { padding: 11 },
-  nameBox: { height: 36, justifyContent: 'flex-start', marginBottom: 5 },   // 2 lines × 18px lineHeight
+  // Card body — ALL rows have explicit fixed heights = pixel-perfect equal cards
+  cardBody: { padding: 10 },
+  nameBox: { height: 36, justifyContent: 'flex-start', marginBottom: 5 }, // 2 lines × 18px
   productName: { fontSize: 12.5, fontWeight: '800', color: '#0f172a', lineHeight: 18, letterSpacing: -0.2 },
-  priceRow: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 5 },
-  price: { fontSize: 17, fontWeight: '900', color: '#15803d', letterSpacing: -0.4 },
-  unit: { fontSize: 10.5, fontWeight: '600', color: '#94a3b8' },
-  locRow: { flexDirection: 'row', alignItems: 'center', gap: 3, height: 18, marginBottom: 8 },  // fixed 1-line height
-  locTxt: { fontSize: 10.5, color: '#b0bec5', flex: 1, fontWeight: '500' },
-  stockBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: '#f0fdf4', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9, borderWidth: 1, borderColor: '#bbf7d0' },
-  stockTxt: { fontSize: 10, fontWeight: '800', color: '#15803d' },
+  priceRow: { flexDirection: 'row', alignItems: 'center', height: 22, marginBottom: 4, gap: 1 },
+  price: { fontSize: 16, fontWeight: '900', color: '#15803d', letterSpacing: -0.4 },
+  unit: { fontSize: 10, fontWeight: '600', color: '#94a3b8', flex: 1 },
+  ratingPill: { backgroundColor: '#fef9c3', borderRadius: 7, paddingHorizontal: 5, paddingVertical: 2, borderWidth: 1, borderColor: '#fde68a' },
+  ratingTxt: { fontSize: 9, fontWeight: '800', color: '#92400e' },
+  locRow: { flexDirection: 'row', alignItems: 'center', gap: 3, height: 15, marginBottom: 4 },
+  locTxt: { fontSize: 10, color: '#94a3b8', flex: 1, fontWeight: '500' },
+  sellerRow: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 14, marginBottom: 7 },
+  sellerDot: { width: 5, height: 5, borderRadius: 2.5, flexShrink: 0 },
+  sellerNameTxt: { fontSize: 9.5, fontWeight: '700', flex: 1 },
+  // Pills — fixed 1-row height (no flexWrap, exactly 2 pills always visible)
+  pillRow: { flexDirection: 'row', gap: 5, height: 22, overflow: 'hidden' },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#f1f5f9', paddingHorizontal: 7, paddingVertical: 4, borderRadius: 7, borderWidth: 1, borderColor: '#e2e8f0', flexShrink: 0 },
+  pillDefault: { backgroundColor: '#f1f5f9', borderColor: '#e2e8f0' },
+  pillGreen: { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' },
+  pillRed: { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
+  pillTxt: { fontSize: 9, fontWeight: '700', color: '#475569' },
+  // Urgency badge over image
+  urgencyBadge: { position: 'absolute', bottom: 8, left: 8, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
+  urgencyBadgeTxt: { fontSize: 8.5, fontWeight: '900', color: '#fff', letterSpacing: 0.2 },
+  // Seller type badge
+  sellerTypeBadge: { position: 'absolute', top: 8, right: 8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 7 },
+  sellerTypeBadgeTxt: { fontSize: 8, fontWeight: '800', letterSpacing: 0.1 },
 
   // Skeleton (same dimensions as real card)
   skeletonImg: { width: '100%', height: IMG_H, backgroundColor: '#e8f5e9' },

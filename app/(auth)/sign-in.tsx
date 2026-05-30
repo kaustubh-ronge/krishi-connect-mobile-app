@@ -57,7 +57,6 @@ export default function SignInScreen() {
         setLoading(false);
       }
     } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
       setError(err.errors?.[0]?.message || 'An error occurred during sign in.');
       setLoading(false);
     }
@@ -74,7 +73,6 @@ export default function SignInScreen() {
         await setActive({ session: createdSessionId });
       }
     } catch (err: any) {
-      console.error('OAuth error', err);
       setError('Google Sign-In failed or was cancelled.');
       setLoading(false);
     }

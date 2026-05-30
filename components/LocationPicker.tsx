@@ -104,9 +104,7 @@ export default function LocationPicker({ onLocationSelect, initialData = {} }: L
           lng: longi
         });
       }
-    } catch (err) {
-      console.error("[Reverse Geocoding] Failed:", err);
-    } finally {
+    } catch (err) {} finally {
       setIsGeocoding(false);
     }
   };
@@ -171,7 +169,6 @@ export default function LocationPicker({ onLocationSelect, initialData = {} }: L
           notify({ city: c });
         }
       } catch (err) {
-        console.error("[City Geocoding] Failed:", err);
         notify({ city: c });
       } finally {
         setIsGeocoding(false);
@@ -214,7 +211,6 @@ export default function LocationPicker({ onLocationSelect, initialData = {} }: L
         Alert.alert('Not Found', 'Could not pinpoint coordinates for this address.');
       }
     } catch (err) {
-      console.error("[Geocoding] Failed:", err);
       Alert.alert('Error', 'Geocoding request failed.');
     } finally {
       setIsGeocoding(false);
