@@ -13,17 +13,6 @@ interface State {
   componentStack: string | null;
 }
 
-/**
- * Global crash catcher.
- *
- * Without this, any uncaught render error in a release build shows up as a
- * blank/grey screen (or a hard crash) with no message. This boundary turns
- * that into a readable, copyable error so the real cause is visible on-device.
- *
- * Note: Error boundaries only catch errors thrown during render/lifecycle of
- * descendant components. Errors in event handlers or async code are not caught
- * here (those paths already use try/catch in this codebase).
- */
 export class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);

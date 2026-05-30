@@ -1547,7 +1547,7 @@ import { useCartStore } from '@/store/cartStore';
 import { useUserStore } from '@/store/userStore';
 import { useApiClient } from '@/services/api';
 import { calculateDistance } from '@/lib/apiHelpers';
-import { Plus, Minus, Trash2, Package, ShoppingCart, Clock, CheckCircle2, AlertCircle, Square, CheckSquare, Truck, ArrowRight } from 'lucide-react-native';
+import { Plus, Minus, Trash2, Package, ShoppingCart, Clock, CheckCircle2, AlertCircle, Square, CheckSquare, Truck, ArrowRight, User as UserIcon } from 'lucide-react-native';
 import { MotiView, ScrollView } from 'moti';
 import { useAuth } from '@clerk/clerk-expo';
 import SpecialDeliveryModal from '@/components/SpecialDeliveryModal';
@@ -1592,7 +1592,7 @@ const CountdownTimer = ({ expiryDate, onExpire }: { expiryDate: Date, onExpire?:
 
 export default function CartScreen() {
   const { isSignedIn } = useAuth();
-  const { profile } = useUserStore();
+  const { profile, loading: userLoading, initialized } = useUserStore();
   const { items, loading, isUpdating, error, fetchCart, updateQuantity, removeFromCart } = useCartStore();
   const [specialRequests, setSpecialRequests] = React.useState<any[]>([]);
   const [pendingOrders, setPendingOrders] = React.useState<any[]>([]);
@@ -1986,6 +1986,39 @@ export default function CartScreen() {
             activeOpacity={0.85}
           >
             <Text style={styles.loginBtnText}>Login to Continue</Text>
+            <ArrowRight color="#fff" size={18} strokeWidth={2.5} />
+          </TouchableOpacity>
+        </MotiView>
+      </SafeAreaView>
+    );
+  }
+
+  const needsProfile = isSignedIn && initialized && !profile && !userLoading;
+
+  if (needsProfile) {
+    return (
+      <SafeAreaView style={styles.rootBg}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>My Cart</Text>
+        </View>
+        <MotiView
+          from={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          style={styles.emptyCenter}
+        >
+          <View style={[styles.emptyIconRing, { borderColor: '#dcfce7', backgroundColor: '#f0fdf4' }]}>
+            <UserIcon color="#16a34a" size={38} strokeWidth={1.5} />
+          </View>
+          <Text style={styles.emptyTitle}>Profile Required</Text>
+          <Text style={styles.emptySubtitle}>
+            Please create your profile to add delivery address and place orders.
+          </Text>
+          <TouchableOpacity
+            style={[styles.loginBtn, { backgroundColor: '#16a34a' }]}
+            onPress={() => router.push('/edit-profile?onboarding=true')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.loginBtnText}>Create Profile</Text>
             <ArrowRight color="#fff" size={18} strokeWidth={2.5} />
           </TouchableOpacity>
         </MotiView>

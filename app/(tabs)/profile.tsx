@@ -34,7 +34,7 @@ export default function ProfileScreen() {
   const { signOut } = useAuth();
   const router = useRouter();
   const api = useApiClient();
-  const { profile, role, loading, fetchProfile } = useUserStore();
+  const { profile, role, loading, initialized, fetchProfile } = useUserStore();
   const { clearLocalCart } = useCartStore();
 
   useFocusEffect(
@@ -66,8 +66,52 @@ export default function ProfileScreen() {
   const sellingStatus = profile?.sellingStatus || profile?.approvalStatus;
   const statusConfig = sellingStatus ? STATUS_CONFIG[sellingStatus] : null;
 
+  const needsProfile = isSignedIn && initialized && !profile && !loading;
+
   if (isLoaded && !isSignedIn) {
-    return <Redirect href="/(auth)/sign-in" />;
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={{ backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827', letterSpacing: -0.5 }}>Profile</Text>
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center', marginBottom: 24, borderWidth: 4, borderColor: '#dbeafe' }}>
+            <UserIcon color="#3b82f6" size={40} />
+          </View>
+          <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#111827', marginBottom: 8 }}>Login Required</Text>
+          <Text style={{ fontSize: 16, color: '#6b7280', textAlign: 'center', marginBottom: 32, paddingHorizontal: 16 }}>Please log in to view your profile and manage your settings.</Text>
+          <TouchableOpacity
+            style={{ backgroundColor: '#2563eb', paddingHorizontal: 32, paddingVertical: 16, borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 }}
+            onPress={() => router.push('/(auth)/sign-in')}
+          >
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>Login to Continue</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (needsProfile) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={{ backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827', letterSpacing: -0.5 }}>Profile</Text>
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: '#f0fdf4', alignItems: 'center', justifyContent: 'center', marginBottom: 24, borderWidth: 4, borderColor: '#dcfce7' }}>
+            <Edit3 color="#16a34a" size={40} />
+          </View>
+          <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#111827', marginBottom: 8 }}>Profile Required</Text>
+          <Text style={{ fontSize: 16, color: '#6b7280', textAlign: 'center', marginBottom: 32, paddingHorizontal: 16 }}>Please create your profile to access your account settings.</Text>
+          <TouchableOpacity
+            style={{ backgroundColor: '#16a34a', paddingHorizontal: 32, paddingVertical: 16, borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 }}
+            onPress={() => router.push('/edit-profile?onboarding=true')}
+          >
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>Create Profile</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   if (loading && !profile) {
