@@ -37,10 +37,6 @@ export default function ProfileScreen() {
   const { profile, role, loading, fetchProfile } = useUserStore();
   const { clearLocalCart } = useCartStore();
 
-  if (isLoaded && !isSignedIn) {
-    return <Redirect href="/(auth)/sign-in" />;
-  }
-
   useFocusEffect(
     useCallback(() => {
       fetchProfile(api);
@@ -69,6 +65,10 @@ export default function ProfileScreen() {
   const address = profile?.address || '';
   const sellingStatus = profile?.sellingStatus || profile?.approvalStatus;
   const statusConfig = sellingStatus ? STATUS_CONFIG[sellingStatus] : null;
+
+  if (isLoaded && !isSignedIn) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
 
   if (loading && !profile) {
     return (

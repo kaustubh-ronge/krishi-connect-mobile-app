@@ -41,10 +41,6 @@ export default function DashboardScreen() {
 
   const [salesSummary, setSalesSummary] = React.useState({ totalOrders: 0, totalRevenue: 0 });
 
-  if (isLoaded && !isSignedIn) {
-    return <Redirect href="/(auth)/sign-in" />;
-  }
-
   useFocusEffect(
     useCallback(() => {
       fetchProfile(api);
@@ -141,6 +137,10 @@ export default function DashboardScreen() {
 
     return common;
   };
+
+  if (isLoaded && !isSignedIn) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
 
   if (loading && !profile) {
     return (
