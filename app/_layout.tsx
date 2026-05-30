@@ -79,7 +79,7 @@ function AuthGuard() {
     const requiresAuth = isProtectedSegment || isProtectedTab;
 
     if (!isSignedIn) {
-      if (requiresAuth) {
+      if (isProtectedSegment) {
         router.replace('/(auth)/sign-in');
       }
       return;

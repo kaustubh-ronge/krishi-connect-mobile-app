@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, Redirect } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useApiClient } from '@/services/api';
 import { useUserStore } from '@/store/userStore';
@@ -32,7 +32,7 @@ const SELLING_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 export default function DashboardScreen() {
-  const { user } = useUser();
+  const { user, isLoaded, isSignedIn } = useUser();
   const { signOut } = useAuth();
   const router = useRouter();
   const api = useApiClient();
@@ -40,6 +40,10 @@ export default function DashboardScreen() {
   const { clearLocalCart } = useCartStore();
 
   const [salesSummary, setSalesSummary] = React.useState({ totalOrders: 0, totalRevenue: 0 });
+
+  if (isLoaded && !isSignedIn) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
 
   useFocusEffect(
     useCallback(() => {

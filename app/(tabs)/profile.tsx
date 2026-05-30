@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, Redirect } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useApiClient } from '@/services/api';
 import { useUserStore } from '@/store/userStore';
@@ -30,12 +30,16 @@ const STATUS_CONFIG: Record<string, { bg: string; text: string; label: string }>
 };
 
 export default function ProfileScreen() {
-  const { user } = useUser();
+  const { user, isLoaded, isSignedIn } = useUser();
   const { signOut } = useAuth();
   const router = useRouter();
   const api = useApiClient();
   const { profile, role, loading, fetchProfile } = useUserStore();
   const { clearLocalCart } = useCartStore();
+
+  if (isLoaded && !isSignedIn) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
 
   useFocusEffect(
     useCallback(() => {
